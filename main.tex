@@ -73,7 +73,20 @@ C compilers do not enforce the C memory model entirely at compile time. This mea
 \section{Name binding}
 Bind names to values. Doesn't work for C because of pointers.
 
-\section{Name binding}
+\section{Array Model}
+ Zhang, J.: Symbolic execution of program paths involving pointers and structure
+variables. In: Proceedings of the Fourth International Conference on Quality Soft-
+ware, pp. 87–92 (2004)
+
+Memory behaves like an array. This handles pointers by representing a pointer value as an array index. If the array is accessed at an unallocated position that represents a bug.
+
+\section{Provenance Model}
+Kayvan Memarian, Victor B. F. Gomes, Brooks Davis, Stephen Kell, Alexander Richardson, Robert N. M.
+Watson, and Peter Sewell. 2019. Exploring C Semantics and Pointer Provenance. Proc. ACM Program. Lang. 3,
+POPL, Article 67 (January 2019), 32 pages. https://doi.org/10.1145/3290380
+C does not permit a pointer to be constructed to an object arbitrarily, even if the value of the pointer does lie inside a valid object. Instead the pointer must have the correct provenance to access an object, which means it must be constructed from the object itself, or from other pointers with the correct provenances. This restricts the set of possible objects that a pointer may point to greatly, allowing more effective analysis.
+
+I'm not sure how to talk about this if we don't use provenance. We don't use provenance because its hard. Maybe we will in the future?
 
 \section{KLEE}
 KLEE is a symbolic execution tool used to execute llvm IR. It uses an object memory model, where each object created owns a section of memory and any access to memory that does not coincide with an object can be reported as an error.
