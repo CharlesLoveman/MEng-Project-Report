@@ -1,0 +1,105 @@
+\documentclass[12pt,twoside]{report}
+
+% some definitions for the title page
+\newcommand{\reporttitle}{The best memory model ever!!!}
+\newcommand{\reportauthor}{Charles Loveman}
+\newcommand{\supervisor}{Daniel Schemmel}
+\newcommand{\reporttype}{Type of Report/Thesis}
+\newcommand{\degreetype}{Type of degree} 
+
+% load some definitions and default packages
+\input{includes}
+
+% load some macros
+\input{notation}
+
+% load title page
+\begin{document}
+\input{titlepage}
+
+
+% page numbering etc.
+\pagenumbering{roman}
+\clearpage{\pagestyle{empty}\cleardoublepage}
+\setcounter{page}{1}
+\pagestyle{fancy}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}
+Your abstract.
+\end{abstract}
+
+\cleardoublepage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Acknowledgments}
+Comment this out if not needed.
+
+\clearpage{\pagestyle{empty}\cleardoublepage}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%--- table of contents
+\fancyhead[RE,LO]{\sffamily {Table of Contents}}
+\tableofcontents 
+
+
+\clearpage{\pagestyle{empty}\cleardoublepage}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\fancyhead[LE,RO]{\slshape \rightmark}
+\fancyhead[LO,RE]{\slshape \leftmark}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction}
+
+\begin{figure}[tb]
+\centering
+\includegraphics[width = 0.4\hsize]{./figures/imperial}
+\caption{Imperial College Logo. It's nice blue, and the font is quite stylish. But you can choose a different one if you don't like it.}
+\label{fig:logo}
+\end{figure}
+
+Figure~\ref{fig:logo} is an example of a figure. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Background}
+\chapter{Related Work}
+
+I am writing a memory model for a concolic execution engine, which will impose a relaxed version of the c memory model on llvm bitcode. When the program executes, the memory model should only report an error if we can guarantee that there is a bug in the program.
+
+When a program executes it needs a way to interact with the memory hardware in your computer. Allowing any part of your program to modify any memory it likes would result in a very complex program, with almost no ability to guarantee program correctness as any variable could be affected by any other part of the code. To simplify the situation, programming languages enforce rules regarding how memory can be accessed to encapsulate data and simplify data flow. A memory model is a set of rules that govern how memory can be accessed.
+
+C compilers do not enforce the C memory model entirely at compile time. This means that a program that compiles is not guaranteed to be correct C and could exhibit undefined behaviour at execution time. This project aims to build a memory model that will check if an instrumented program obeys a relaxed version of the C memory model at execution time, allowing us to report bugs if the program violates the memory model.
+
+\section{Name binding}
+Bind names to values. Doesn't work for C because of pointers.
+
+\section{Name binding}
+
+\section{KLEE}
+KLEE is a symbolic execution tool used to execute llvm IR. It uses an object memory model, where each object created owns a section of memory and any access to memory that does not coincide with an object can be reported as an error.
+
+\section{SymCC}
+https://www.usenix.org/system/files/sec20-poeplau.pdf This paper on symCC doesn't talk much about the memory. It mentions how they implement a shadow memory to store symbolic information, which involves tracking allocations so they must do something similar to KLEE
+
+
+https://dl.acm.org/doi/pdf/10.1145/1229428.1229469 This paper looks at concurrent memory accesses. A data race is a bug but I don't think it violates the C standard so we aren't interested in this.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Contribution}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Experimental Results}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Conclusion}
+
+
+%% bibliography
+\bibliographystyle{apa}
+
+
+\end{document}
