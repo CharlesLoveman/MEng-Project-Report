@@ -1,7 +1,7 @@
 \documentclass[12pt,twoside]{report}
 
 % some definitions for the title page
-\newcommand{\reporttitle}{The best memory model ever!!!}
+\newcommand{\reporttitle}{A C Memory Model for use with Concolic Testing}
 \newcommand{\reportauthor}{Charles Loveman}
 \newcommand{\supervisor}{Daniel Schemmel}
 \newcommand{\reporttype}{Type of Report/Thesis}
@@ -13,6 +13,13 @@
 % load some macros
 \input{notation}
 
+%\usepackage[
+%backend=biber,
+%style=apa,
+%sorting=ynt
+%]{biblatex}
+%\addbibresource{references.bib}
+\bibliographystyle{abbrv}
 % load title page
 \begin{document}
 \input{titlepage}
@@ -25,16 +32,16 @@
 \pagestyle{fancy}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{abstract}
-Your abstract.
-\end{abstract}
+%\begin{abstract}
+%Your abstract.
+%\end{abstract}
 
-\cleardoublepage
+%\cleardoublepage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section*{Acknowledgments}
-Comment this out if not needed.
+%\section*{Acknowledgments}
+%Comment this out if not needed.
 
-\clearpage{\pagestyle{empty}\cleardoublepage}
+%\clearpage{\pagestyle{empty}\cleardoublepage}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %--- table of contents
@@ -42,7 +49,7 @@ Comment this out if not needed.
 \tableofcontents 
 
 
-\clearpage{\pagestyle{empty}\cleardoublepage}
+%\clearpage{\pagestyle{empty}\cleardoublepage}
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \fancyhead[LE,RO]{\slshape \rightmark}
@@ -50,69 +57,280 @@ Comment this out if not needed.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Introduction}
+%1-3 pages
+% It’s a good idea to try to write the introduction to your final report early on in the project. However, you will find it hard, as you won’t yet have a complete story and you won’t know what your main contributions are going to be. However, the exercise is useful as it will tell you what you don’t yet know and thus what questions your project should aim to answer. For the interim report this section should be a short, succinct, summary of the project’s main objectives. Some of this material may be re-usable in your final report, but the chances are that your final introduction will be quite different.  You are therefore advised to keep this part of the interim report short, focusing on the following questions: What is the problem, why is it interesting and what’s your main idea for solving it?  (DON'T use those three questions as subheadings however!  The answers should emerge from what you write.)
 
-\begin{figure}[tb]
-\centering
-\includegraphics[width = 0.4\hsize]{./figures/imperial}
-\caption{Imperial College Logo. It's nice blue, and the font is quite stylish. But you can choose a different one if you don't like it.}
-\label{fig:logo}
-\end{figure}
+ %The problem is - CCF is a new bug finding program, but it doesn't have any way to detect memory bugs. So I need to implement some way of detecting program behaviour that violates the C standard, and produce constraints that generate interesting inputs based on the memory behaviour.
+% Why is this interesting - C is notorious for its dodgy memory behaviour, and it is necessary to detect bugs that would otherwise pass silently in execution.
+% How are we going to solve it - track memory accesses and record behaviour, check that it is okay and then generate constraints that accesses must lie within valid memory objects.
 
-Figure~\ref{fig:logo} is an example of a figure. 
+
+C is a systems programming language widely used for performance programming. It is difficult to write bug free C programs, there are many ways to cause undefined behaviour and implementations of C will often pass over erroneous code silently. Memory bugs are difficult to find as in some cases they may show no symptoms, such as a buffer overflow which will only be visible if it crosses a page boundary or overwrites important data. These bugs have occurred in almost every large scale system and it is important to be able to find and eliminate these bugs.
+
+Unfortunately, it is impossible to find all memory bugs in a C program at statically. As a result, we need to apply a dynamic analysis to determine if there are memory bugs in a program. Concolic execution is a form of dynamic analysis that follows a single execution through the program and discovers each branching point encountered. It then selects a branching point and uses symbolic reasoning to determine if an input exists to follow the branch not taken in a previous execution. In this way we efficiently explore the program and can discover bugs in the executions we follow.
+
+CCF is a new concolic execution project which aims to find bugs in C programs. As it currently lacks an implementation to detect memory bugs, this project aims to implement a memory model that will be able to identify where the execution differs from the defined behaviour of a C program. 
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Background}
+%10-20 pages
+%The background section of the report should set the project into context by relating it to existing published work which you read at the start of the project when your approach and methods were being considered. There are usually many ways of solving a given problem, and you shouldn't just pick one at random. Describe and evaluate as many alternative approaches as possible. The published work may be in the form of research papers found in the academic literature, articles, text books, technical manuals, or even existing software or hardware of which you have had hands-on experience. Your must acknowledge the sources of your inspiration. You are expected to have seen and thought about other people's ideas; your contribution will be putting them into practice in some other context. However, avoid plagiarism: if you take another person's work as your own and do not cite your sources of information/inspiration you are being dishonest. When referring to other pieces of work, cite the sources where they are referred to or used, rather than just listing them at the end. Accidental plagiarism or not knowing how to cite and reference is not a valid reason for plagiarism. Make sure you read and digest the Department's plagiarism document .
+
+%In writing the Background chapter you must demonstrate your ability to analyse, synthesise and apply critical judgement. Analysis is shown by explaining how the proposed solution operates in your own words as well as its benefits and consequences. Synthesis is shown through the organisation of your Related Work section and through identifying and generalising common aspects across different solutions. Critical judgement is shown by discussing the limitations of the solutions proposed both in terms of their disadvantages and limits of applicability.
+
+
+%Need to explain:
+%Undefined Behaviour and C
+%What are the problems?
+
+\section{Program Testing}
+
+%\begin{tikzpicture}[>=stealth]
+%\draw[draw=none, use as bounding box] (-4,0.5) rectangle (4,-6);
+%\node[draw,rounded corners=3pt,fill=blue!20] (conc) {\texttt{int x = concrete\_int();}}; \uncover<2->{\node[right=0.3cm of conc] {$\left\lbrace\;\right\rbrace$};}
+%\uncover<3->{\node[draw,rounded corners=3pt,fill=blue!20,below=0.5cm of conc.south] (sym) {\texttt{int y = symbolic\_int();}};} \uncover<4->{\node[right=0.3cm of sym] {$\left\lbrace\;\right\rbrace$};}
+%\uncover<5->{\node[draw,rounded corners=3pt,fill=blue!20,below=0.5cm of sym.south] (if1) {\texttt{if(x > 0)}};} %\uncover<6->{\node[right=0.3cm of if1] {$\left\lbrace\;\right\rbrace$};}
+%\uncover<7->{\node[draw,rounded corners=3pt,fill=blue!20,below=0.5cm of if1.south] (then1) {\texttt{ok1();}};} %\uncover<8->{\node[right=0.3cm of then1] {$\left\lbrace\;\right\rbrace$};}
+%\uncover<9->{\node[draw,rounded corners=3pt,fill=blue!20,below=0.5cm of then1.south] (if2) {\texttt{if(y > 0)}};} % \uncover<10->{\node[right=0.3cm of if2] {$\left\lbrace\;\right\rbrace$};}
+%\uncover<11->{\node[draw,rounded corners=3pt,fill=blue!20,below left=0.7071cm of if2.south] (then2) {\texttt{ok2();}};} \uncover<12->{\node[left=0.3cm of then2] {$\left\lbrace y > 0\right\rbrace$};}
+%\uncover<13->{\node[draw,rounded corners=3pt,fill=blue!20,below right=0.7071cm of if2.south] (else2) {\texttt{bug2();}};} \uncover<14->{\node[right=0.3cm of else2] {$\left\lbrace y \leq 0\right\rbrace$};}
+
+%\uncover<3->{\draw[->,very thick] (conc) -- (sym);}
+%\uncover<5->{\draw[->,very thick] (sym) -- (if1);}
+%\uncover<7->{\draw[->,very thick] (if1) -- (then1);}
+%\uncover<9->{\draw[->,very thick] (then1) -- (if2);}
+%\uncover<11->{\draw[->,very thick] (if2) -- (then2);}
+%\uncover<13->{\draw[->,very thick] (if2) -- (else2);}
+%\end{tikzpicture}
+\tikzstyle{process} = [rectangle, minimum width=1cm, minimum height=0.5cm, text centered, draw=black, fill=orange!30]
+\tikzstyle{arrow} = [thick,->]
+\begin{figure}
+    \centering
+    \begin{tikzpicture}[node distance=2cm]
+        \node (root) [process] {Branch Point};
+        \node (node1) [process, below of=root, xshift=-2cm] {Branch Taken};
+        \node (node2) [process, below of=root, xshift=2cm] {Branch Not Taken};
+        \draw [arrow] (root) -- (node1);
+        \draw [arrow] (root) -- (node2);
+    \end{tikzpicture}
+    \caption{Program Paths}
+    \label{fig:enter-label}
+\end{figure}
+
+The standard approach to finding errors in a piece of software is to write test programs which execute part or all of the program under test with set input parameters, to examine the behaviour of the program and ensure that the execution performs as expected. Testing has many advantages, it is easy to set up and all modern programming languages will have extensive support for writing test cases. Furthermore, tests can be written as the program grows and develops to create a full suite of tests that fully describes the intended behaviour of the program. However, testing has a key problem, where as the program grows the number of possible execution paths through program can grow exponentially. As a single test only follows one path through the program, you would need to manually write an exponential number of test cases to cover the full behaviour of the program. As a result, test suites for real software will not cover every possible path, potentially allowing bugs to remain in the program.
+
+At the opposite end of the spectrum of possible bug finding techniques is program verification. In this paradigm, the programmer produces a proof for the behaviour of the program, showing that the code written will ensure that the output satisfies particular properties which are required for the desired behaviour. One way to do this is to write a specification for the behaviour of each function in terms of its input parameters and then go on to show that output of the function must satisfy a given property. Verification is the most reliable way (and possibly the only way) of ensuring program correctness, that is to say that no logical errors can remain in the software, as long as the proof is valid. Unfortunately, program verification cannot be done automatically for all programs, which means for real software to be verified requires a long and expensive period of manually proving the correctness of every part of the program.
+
+Verification is further undermined by reliance on external libraries. If any code used by the verified software has not itself been verified, we lose our claims of correctness and unfortunately most popular libraries have not been verified. This leaves the programmer in a difficult position where they must either re-implement all desired functionality from the insecure library or to accept the risk and use the library. As all real software will utilise some external code, this means the ability of verification to ensure correctness is limited.
+
+The effectiveness of manual testing is often evaluated through the use of line coverage, a metric which determines which lines of a program are visited during the execution of a test suite. Line coverage is simple to implement, but it is not a perfect approximation for code coverage. Code coverage is the proportion of program behaviours which are exercised by the test suite. The goal of testing is to demonstrate that all possible program behaviours are valid, so it is necessary to optimise code coverage to show that we have seen all program behaviours. Program behaviour meaningfully differs when the code branches, resulting in different execution paths through a program. The execution paths through a program can be represented as a tree, where each branch is a node. If we can fully explore the tree, we guarantee that we will find all bugs in the program, as we have observed all possible program behaviours. However, it is difficult to determine what inputs will cause the program to take a particular path through a program. Furthermore, we may not know all possible paths statically so we would need to discover new program paths through dynamic execution.
+
+\subsection{Symbolic Execution}
+Symbolic execution is a software testing technique which positions itself between manual testing and verification as an automatic technique that can cover all possible inputs to a program. Symbolic execution was invented in the 1970's \cite{10.1145/800027.808444, 10.1145/360248.360252, 1702443, 10.1145/800027.808445} as a way to better test programs. Instead of using concrete values as input to our program, we provide symbolic values. A symbolic value is a symbol that can represent many possible concrete values. We define the programming languages operations on the symbolic values naturally from their concrete definitions. For example, if $\lambda$ is a symbolic value with possible values $1,2,3$, the expression $\lambda + 1$ will have possible values $2,3,4$. In this way all the operations of a programming language can be extended to act on symbolic values.
+
+Once we have defined the behaviour of operations on symbolic values, we can interpret the execution of the software. As we traverse the code we can maintain a record of the concrete and symbolic values stored in each variable and once we reach the end of the program we will have computed all possible outputs. This demonstrates one of the key advantages of symbolic execution over manual testing, we can finish symbolic execution whereas manual testing must be done continuously to ensure good coverage is maintained. 
+
+The difficulty of symbolic execution appears when we consider conditional branches. At a branch we have two possible execution paths, each of which will result in a different execution path. The executor will use logical reasoning to determine if each branch is possible. If it is, we can fork the execution at the conditional branch, so we cover both possible paths \cite{10.1145/360248.360252, cadar2008klee}. This is conceptually simple, but it runs into a similar limitation to manual testing as we have an exponential blow-up in possible paths.
+
+
+%Need an UNSAT path, could use 
+\begin{figure}
+    \centering
+    \begin{minipage}{0.3\textwidth}
+    %if(x < 0) {x = 0;}; if (x > 5) {abort;}
+    \begin{lstlisting}[language=C]
+int clamp(int x) {
+    if (x < 0) {
+        x = 0;
+    }
+    if (x > 5) {
+        abort();
+    }
+    return x;
+}
+\end{lstlisting}
+    \end{minipage}
+    \begin{minipage}{0.6\textwidth}
+    %don't do x = value, just do x = lambda everywhere
+    \begin{tikzpicture}[node distance=1.5cm]
+        \node (root) [process] {\tiny $\{x = \lambda\}, \{\})$};
+        \node (node1) [process, below of=root, xshift=-1.8cm] {\tiny $\{x = \lambda\}, \{\lambda < 0\}$};
+        \node (node2) [process, below of=node1, xshift=-1.8cm] {\tiny $\{x = 0\}, \{\lambda < 0\}$};
+        \node (node3) [process, below of=node2, xshift=-1.8cm] {\tiny $\{x = 0\}, \{\lambda < 0, \lambda > 5\}$};
+        \node (node4) [process, below of=node2, xshift=1.8cm] {\tiny $\{x = 0\}, \{\lambda < 0, \neg(\lambda > 5)\}$};
+        \node (node5) [process, below of=root, xshift=1.8cm] {\tiny $\{x = \lambda\}, \{\neg(\lambda < 0)\}$};
+        \node (node6) [process, below of=node5, xshift=-1.8cm] {\tiny $\{x = \lambda\}, \{\neg(\lambda < 0), \lambda > 5\}$};
+        \node (node7) [process, below of=node5, xshift=1.8cm] {\tiny $\{x = \lambda\}, \{\neg(\lambda < 0), \neg(\lambda > 5)\}$};
+        \draw [arrow] (root) -- (node1);
+        \draw [arrow] (root) -- (node5);
+        \draw [arrow] (node1) -- (node2);
+        \draw [arrow] (node2) -- (node3);
+        \draw [arrow] (node2) -- (node4);
+        \draw [arrow] (node5) -- (node6);
+        \draw [arrow] (node5) -- (node7);
+    \end{tikzpicture}
+    \end{minipage}
+    \caption{Execution paths in clamp function}
+    \label{fig:foopaths}
+\end{figure}
+
+Figure \ref{fig:foopaths} shows the execution paths in a simple function. To explore this function as a symbolic executor would initially assign a symbolic value to x. When it reaches the condition $x < 0$ the executor will use an SMT solver to determine if there is an assignment to x that satisfies each side of the condition. So it will find that for any negative value the program will take the leftmost path.
+
+Then it will reach the $x > 5$ branch. As we took the $x < 0$ path, we should find that there is no input that follows the $x > 5$ and $x < 0$ paths. As a real program is much more complicated, we need to use an SMT solver to determine if a set of constraints is unsatisfiable. As there is no possible input for this path, the executor does not need to consider it any further.
+
+If the value of $\lambda$ is positive it will take the right path. Then it will determine if $\lambda$ could be greater than 5, if so it will take the left path and abort. This shows that there is a bug in the program. If the symbolic solver can ever find a path that leads to a crash and produce an input that leads to that path being taken, it has demonstrated a bug in the program.
+
+Finally, the SMT solver should find for any value between 0 and 5 the program executes successfully. As this is uninteresting for a bug finding program, the executor should then focus on other paths that may lead to a crash.
+
+
+\subsection{Determining Branch Conditions}
+In order to determine if a branch can be taken, a Satisfiability Modulo Theory (SMT) solver \cite{Barrett2018} is used. These solvers extend Satisfiability (SAT) solvers to allow the use of background theories for greater expressibility. A SAT solver \cite{10.1007/978-3-540-24605-3_37} takes a logical formula and determines if there is an assignment to the boolean variables in the formula that will result in the formula being true. 
+ 
+%is it natural`??
+%quantifier free bitvectors and arrays, fp?
+%need to talk about memory in symbolic execution
+
+To describe program behaviour using only boolean variables is quite difficult, but using an SMT solver allows us to use the Quantifier-Free Bitvector theory, which lets us describe program behaviour using operations on fixed size bitvectors. This is more natural as program constructs like integers are typically represented in a computer as a bitvector, so operating with bitvectors allows us to put conditions on data operations more directly. We have to use the Quantifier-Free theory as introducing quantifiers makes the theory undecidable.
+
+%An important theory for modelling the use of memory is the array theory \cite{10.1007/978-3-642-00768-2_16} which can be used to model changes to an array of values. This can greatly reduce the number of boolean variables required as representing each memory cell with its own variable would produce a huge number of variables which would slow down the solver greatly. We're interested in producing solutions as quickly as possible to explore more paths through the program, so the SMT solver used is important to get good results.
+
+\subsection{Concolic Execution}
+Concolic Execution is a program testing technique that combines symbolic execution with concrete execution \cite{217563}.
+Concolic execution can be considered an offline version of symbolic execution. We select an input and follow a single path through the program. At each branch we encounter, we record the conditions on the symbolic input required for the branch. Once the execution terminates, we select one branch condition and reverse it, giving a new program path. Then we use an SMT solver to find an input that satisfies the branch conditions to get an input that will take the new path. By executing this loop repeatedly, we can search the tree of paths efficiently.
+
+A concolic executor exploring Figure \ref{fig:foopaths} would select a random input initially, for example 6. In execution it would reach both the $x < 0$ and $x > 5$ branch nodes, finally reaching the $x = 5$ output. Then it would randomly select a condition, for example $x > 5$, and determine if there is an input that would take the same path up to this point, but then take the other direction. This gives the condition $\neg(x < 0) \wedge \neg(x > 5)$, which an SMT solver can solve to produce a satisfying assignment of $3$. The solver would then run a new execution with the input $x = 3$.
+
+
+% prototype
+% missing some features e.g. memory model - not tweaking, need to build from scratch
+CCF is a new concolic executor that aims to improve on existing concolic executors by efficiently executing C programs concolically and providing support for external function calls. This should allow for a greater variety of C programs to be executed which could promote the use of concolic execution on real programs. As CCF is a prototype it has some features that are yet to be implemented. One example of this is a memory model, so for this project we will implement a memory model from scratch.
+
+
+\section{Memory Models}
+A program can only have a bug if we define a set of rules that specify what behaviour is legal and what is not. A memory model is a formal description of the memory store and operations over it \cite{leroy2008formal}. As the C standard does not provide an executable memory model checker, there are a variety of interpretations of the C memory model which have been proposed.
+
+The role of the memory model is twofold. First, it must specify how the program may interact with memory, is memory composed of a flat array, a set of objects, or any other data structure. Second, we need a way to implement the memory model, a program that can check that the execution does not violate the memory model. To do so, it is typical to maintain a shadow memory - a copy in some sense of the original memory that allows us to store metadata regarding the memory access behaviour. By instrumenting the program under test to let us observe its memory accesses, we can store the required data in the shadow memory to allow us to determine if the program under test exhibits illegal behaviour.
+
+The C programming language has an object-based memory model. The programmer does not have the ability to directly modify arbitrary memory, instead they must allocate an object which occupies a segment of memory. An unusual feature of C is that once an object is allocated, C makes the underlying representation of that object available to the programmer. Most programming languages do not allow this, as it requires a more complex memory model to represent objects with representations than a model where objects can only be interacted with through an interface. 
+
+In C, the period in which an object is guaranteed to be stored and its value is valid to access is called its lifetime. The lifetime of an object depends on the object's storage duration. The C standard defines four storage durations: static, thread, automatic, and allocated. Static objects are created at before the program starts and their lifetime continues until the program terminates. Thread objects are created when a thread is created and will exist until the thread terminates. An object with automatic storage duration will exist until the block in which it is created ends. Finally, if an object has allocated storage duration it will exist until the memory region containing the object is explicitly freed.
+
+For an implementation to be considered a C memory model it must therefore ensure that any access to an object occurs within that object's storage duration. This suggests an obvious implementation, whenever an object is allocated store some additional metadata regarding the objects storage duration and whenever the object is accessed ensure it is within the stored duration. However, this is complicated by indirect memory accesses using pointers. When a pointer is dereferenced, we don't know the name of the object pointed to. As a result, a memory model must be more complicated, to allow us to determine if dereferencing a pointer will access a region of memory contained within an object and within that object's storage duration.
+
+\section{A symbolic treatment of memory}
+Writing a concrete value to a concrete memory location is trivial in an array model. However, concolic execution needs to track how using a symbolic value would affect memory, in order to generate constraints from the concrete execution. This means we can have two difficult cases, writing a symbolic value to a concrete location, and writing any value to a symbolic location. Writing a symbolic value to a concrete location can be solved by maintaining a shadow memory of expressions and writing the symbolic value to the concrete address in the shadow.
+
+Writing to a symbolic location is more difficult. If you represented the memory of symbolic values as a flat array, writing to a symbolic location could require you to update every location in the array. This would have bad performance for large arrays and could lead to very complicated expressions after multiple writes to symbolic locations. We can avoid these drawbacks by using an update list, which maintains a record of the original array and stores modifications to the array in a list. This means a write to a symbolic location only requires a single entry, instead of N entries as in an array. For this reason, many popular symbolic executors use this technique \cite{cadar2008klee, cadar2008exe}.
+
+
+
 \chapter{Related Work}
+%Empty chapters!!!
+\section{C Memory Models}
+%Talk
+\subsection{Name binding}
+Name binding is a simple form of memory management where memory objects are allocated and associated with a name in the program. When an object is created we give it a name that is not used for any other live object. By referring to the name of an object, this should uniquely identify the object allowing us to model objects as completely separate from each other. This model is simple and easy to implement, however, C requires objects to be resident in memory and gives ways to access the memory representation of each object. As pointers allow multiple names to be associated with the same memory object, the name binding model is insufficient to model C with pointers \cite{xu2010memory}.
 
-I am writing a memory model for a concolic execution engine, which will impose a relaxed version of the c memory model on llvm bitcode. When the program executes, the memory model should only report an error if we can guarantee that there is a bug in the program.
+\subsection{Array Model}
+Modelling memory as an array is used in many applications~\cite{cadar2008klee,cadar2008exe,leroy2008formal,poeplau2020symbolic}. When memory objects are allocated they inhabit a region of the array and valid memory accesses must lie within one of these regions. This makes an array model more appropriate for modelling memory for a C program as C guarantees that an object will be resident in memory for the duration of its lifetime and any accesses to the memory occupied by the object must be valid for that duration.
 
-When a program executes it needs a way to interact with the memory hardware in your computer. Allowing any part of your program to modify any memory it likes would result in a very complex program, with almost no ability to guarantee program correctness as any variable could be affected by any other part of the code. To simplify the situation, programming languages enforce rules regarding how memory can be accessed to encapsulate data and simplify data flow. A memory model is a set of rules that govern how memory can be accessed.
+One way to implement an array model is to directly map memory into a single array, this allows for very fast access and write times as these operations can be implemented directly as array operations. One application that uses a direct mapped array is ASAN \cite{180957}. The disadvantage of using a single array is that it uses a large amount of memory as each byte of program memory needs to be represented by at least one bit in the array. If the program does not use the entire address space this could be very wasteful and if the memory model requires more metadata per byte of memory a flat array can quickly become infeasible.
 
-C compilers do not enforce the C memory model entirely at compile time. This means that a program that compiles is not guaranteed to be correct C and could exhibit undefined behaviour at execution time. This project aims to build a memory model that will check if an instrumented program obeys a relaxed version of the C memory model at execution time, allowing us to report bugs if the program violates the memory model.
+EXE \cite{cadar2008exe} and KLEE \cite{cadar2008klee} represent memory allocations using one array per memory object. This offers a clear advantage over using a single array as we only allocate memory that we will use. However, it also introduces complications if a memory access may span over multiple arrays. For symbolic executors smaller arrays are necessary, as a write to a symbolic address in an array can become problematic if the array is too large. Using an update list only requires one record to be stored per update, which is more efficient than recording every possible value for the state of the array. A limitation of this model is that pointers to pointers must be concretised to access the second level pointer, however this isn't an issue for concolic execution.
 
-\section{Name binding}
-Bind names to values. Doesn't work for C because of pointers.
-
-\section{Array Model}
- Zhang, J.: Symbolic execution of program paths involving pointers and structure
-variables. In: Proceedings of the Fourth International Conference on Quality Soft-
-ware, pp. 87–92 (2004)
-
-Memory behaves like an array. This handles pointers by representing a pointer value as an array index. If the array is accessed at an unallocated position that represents a bug.
-
-\section{Provenance Model}
-Kayvan Memarian, Victor B. F. Gomes, Brooks Davis, Stephen Kell, Alexander Richardson, Robert N. M.
-Watson, and Peter Sewell. 2019. Exploring C Semantics and Pointer Provenance. Proc. ACM Program. Lang. 3,
-POPL, Article 67 (January 2019), 32 pages. https://doi.org/10.1145/3290380
-C does not permit a pointer to be constructed to an object arbitrarily, even if the value of the pointer does lie inside a valid object. Instead the pointer must have the correct provenance to access an object, which means it must be constructed from the object itself, or from other pointers with the correct provenances. This restricts the set of possible objects that a pointer may point to greatly, allowing more effective analysis.
-
-I'm not sure how to talk about this if we don't use provenance. We don't use provenance because its hard. Maybe we will in the future?
-
-\section{KLEE}
-KLEE is a symbolic execution tool used to execute llvm IR. It uses an object memory model, where each object created owns a section of memory and any access to memory that does not coincide with an object can be reported as an error.
-
-\section{SymCC}
-https://www.usenix.org/system/files/sec20-poeplau.pdf This paper on symCC doesn't talk much about the memory. It mentions how they implement a shadow memory to store symbolic information, which involves tracking allocations so they must do something similar to KLEE
+KLEE \cite{cadar2008klee} represents memory similarly to EXE \cite{cadar2008exe}. It differs by sharing immutable state between program executions to allow copy-on-write. This allows for faster branch execution as the heap can be copied in constant time.
 
 
-https://dl.acm.org/doi/pdf/10.1145/1229428.1229469 This paper looks at concurrent memory accesses. A data race is a bug but I don't think it violates the C standard so we aren't interested in this.
+\subsection{Provenance Model}
+The C standard is unclear on how a pointer may be constructed to an object \cite{memarian2019exploring} and Defect Report 260 \cite{defectreport260} states that implementations can track the origins of pointer values. This imposes a restriction not expressible in the array model as it requires that pointers cannot be constructed to objects arbitrarily, even if the program is able to guess the address of an object. A provenance model prevents this by maintaining a record of objects which a given pointer has knowledge of and only allows pointers to access objects within their provenance set \cite{memarian2019exploring}. This limits the objects that a given pointer may access which allows more effective analysis and compiler optimisation and also detects more bugs which could be hidden by the array model, such as if a buffer overflow overran an adjacent object.
 
+However, a provenance model is significantly more complex than an array model and it can produce unintuitive behaviour. It has been shown that many expert C programmers fail to correctly identify how provenance semantics will affect the behaviour of C programs \cite{can't find the reference for this}. As a result, a provenance model could report many errors that programmers would view as false positives, even if they are real bugs with respect to the provenance model.
+
+\section{Static Analysis}
+In an ideal world the compiler would find all problems with your program immediately, so you could have a guarantee that if the program runs then it runs correctly. Unfortunately, static analysis is undecidable \cite{10.1145/161494.161501}, which means we cannot determine non-trivial properties with certainty for all programs. As a result, static analysis is inherently limited in its ability to find problems with programs.
+
+Despite this, there has been a lot of effort put into producing effective static analyses \cite{johnson1977lint,bushstaticanalysis,wilson1995efficient}. A static analysis is an algorithm that determines a property about a program, without executing the program. These analyses are used frequently in compilers for code generation \cite{wilson1995efficient} and for error detection \cite{bushstaticanalysis}. The advantage of determining properties statically is that, providing the analysis is correct, a statically determined result must hold for any execution. This can allow a compiler to make optimisations confidently, knowing that it cannot break program behaviour. However, this confidence comes with the drawback of undecidability, so static analyses are forced to make a trade off between guaranteed correctness or guaranteed termination.
+
+Static analysis is relevant to finding memory errors, as analyses that track pointer values\cite{wilson1995efficient} can allow us to determine which values it is possible for a pointer to reference. This can identify invalid memory accesses if we can determine that a pointer will reference an invalid object. In practice however, these analyses often fail to determine if an access is invalid as a pointer could take a large number of possible values. A dynamic approach, which executes the program and determines if invalid operations occur in that execution can be more effective as it has access to more information that can only be determined at run-time.
+
+\section{Symbolic Execution}
+\subsection{KLEE}
+KLEE \cite{cadar2008klee} is a popular symbolic execution tool, which has been extended to support concolic execution. KLEE's object memory model is an instance of an array memory model, where each object is allocated its own array. As a symbolic executor, KLEE focuses on efficient process duplication, which is less important for a concolic executor. KLEE's implementation of symbolic arrays uses an update list which allows for efficient storage of symbolic modifications of arrays. As memory is modelled using a collection of arrays this is important to produce efficient SMT queries.
+
+\subsection{SymCC}
+ SymCC \cite{poeplau2020symbolic} is a recent concolic executor which aims to achieve greater performance through executing compiled code directly. As the code is not interpreted, it must be instrumented at compile time to insert code to track memory allocations. They implement a shadow memory to record symbolic data related to the execution. 
+
+\section{Compiler Sanitizers}
+GCC and Clang implement instrumentation tools called sanitizers which insert run-time checks into the compiled binary to determine if a bug is present at execution time. This can be useful in cases where static analysis fails to identify an error, but it also fails to eliminate the possibility of a bug. For many types of undefined behaviour it is significantly easier to identify a bug at execution time when we only deal with concrete values and a single execution path. For these issues, a sanitizer can identify where the issue happens by adding extra checks into the program and halting execution if the program enters an illegal state.
+
+Sanitizers are not used in production software as they result in a large slowdown due to the extra safety checks at run-time. Instead, they are typically used in a test suite to check that the code under test does not exhibit illegal behaviour. This means sanitizers are subject to the same limitations that manual testing has, namely that it can only demonstrate a bug if we provide an input that causes the program to follow a specific execution path that leads to the illegal behaviour. It is possible to have a large test suite and still miss these cases, so the sanitizer would not find any bugs.
+
+The AddressSanitizer \cite{180957} (ASAN) built into Clang and GCC adds instrumentation to report memory bugs at run-time. To find these bugs ASAN maintains a shadow memory, a direct mapping that encodes each 8 byte segment of memory into a single byte of shadow memory. When an address is accessed, ASAN will check if the corresponding shadow memory is in a valid state to access. To do this it has to monitor all memory allocations and frees and update the shadow memory to mirror these changes. It also poisons the surrounding memory, to make it easier to determine if the program under test reads invalid memory. CCF uses a similar shadow memory mechanism, but instead of directly mapping memory, it maintains a binary tree of memory objects. This allows CCF to store information dynamically per memory object, which is important for a concolic executor that may need to maintain a lot of state for some memory regions and almost no data for regions that are never accessed.
+
+\chapter{Project Plan}
+%Project Plan (1-2 pages). You should explain what needs to be done in order to complete the project and roughly what you expect the timetable to be. Don’t forget to include the project write-up (the final report), as this is a major part of the exercise. It’s important to identify key milestones and also fall-back positions, in case you run out of time.  You should also identify what extensions could be added if time permits.  The plan should be complete and should include those parts that you have already addressed (make it clear how far you have progressed at the time of writing).  This material will not appear in the final report.
+
+CCF has an existing shadow memory implementation, with expression values inserted automatically and a blank metadata shadow. To implement an array memory model we will need to implement functions that update the metadata shadow memory to track which regions are allocated and which have been freed. CCF's instrumentation inserts function calls on each allocation, deallocation, memory read, and memory write. A memory model implementation must implement each of these operations on the shadow memory.
+
+Once the shadow memory is correctly updated to track the state of the program under test, we will need to implement functionality to check that the behaviour of the concrete execution does not violate the array memory model. This will involve updating each function to ensure that all accesses lie within valid regions and that allocations and deallocations must occur on regions that have not already been allocated or deallocated respectively.
+
+The final step to implement an array memory model is to generate symbolic constraints from the program behaviour. This should follow from the previous steps, using CCF's framework to express the constraints. 
+
+Additionally, the final report will need to be written.
+
+If the array memory model is implemented quickly, implementing a provenance based model would be a possible extension.
+
+% Plan time for evaluation
+% Try existing test suites and benchmarks suites
+
+The final report is due on Monday 17 June 2024, 14:00. To meet this deadline a complete version of the report should be completed by the 1st of June, giving around two weeks for revisions. Aiming to complete the implementation by the 1st of May should give sufficient time to write the report and give some flexibility for any issues with the implementation. This leaves February through April to complete the implementation. This should be sufficient for the minimal implementation described above, but it seems unlikely that there will be time for the extension. The final week should be enough to make the presentation.
+
+Currently, I have implemented updating the shadow memory for allocation and deallocation.
+
+\chapter{Evaluation Plan}
+%Evaluation plan (1-2 pages). Project evaluation is very important, so it's important to think now about how you plan to measure success. For example, what functionality do you need to demonstrate?  What experiments to you need to undertake and what outcome(s) would constitute success?  What benchmarks should you use? How has your project extended the state of the art?  How do you measure qualitative aspects, such as ease of use?  These are the sort of questions that your project evaluation should address; this section should outline your plan.
+
+%Need to distinguish between the bugs we miss on purpose vs the ones we miss by accident.
+A successful project will produce a memory model that correctly identifies memory bugs in C programs. To evaluate this, we will construct a set of synthetic test programs with specific memory bugs inserted to test if the system catches each bug as expected. An ideal solution will catch all bugs of every class, however, in practice the memory model produced may have different performance on each class of bugs. Classifying each synthetic test case by the type of bug present will allow us to evaluate what proportion of each class of bugs are detected. 
+
+% Performance is not as crucial as for some things, but it is important! We need to be able to run the programs.
+% We need the performance to be sufficient to run programs.
+Efficient operation is less important than program correctness, but it is desirable as a secondary goal for the program to find these bugs efficiently. The program must be able to be run quickly to be useful and be able to execute the test suite in a reasonable amount of time to allow evaluation of correctness. Measuring the execution time on the test suite will give a simple evaluation of the efficiency of the model.
+
+% Could explain why this is difficult as it may work with
+If this goes well, it could be extended to test on some real programs, but this may not work for various reasons e.g. compiling coreutils with CCF may be difficult as compiling real world C programs is always difficult and it may be made more complicated as CCF is a prototype.
+
+%Also need correct test cases with no memory bugs. 
+
+
+\chapter{Ethical Issues}
+ %Ethical issues (where necessary - 1-2 pages). Are there wider ethical, legal, professional and societal issues surrounding your project and the accompanying research? If there are, please discuss these. You should use the ethics checklist as the basis for this discussion. 
+ %Just go through the checklist, no big problems here.
+
+ As a computing project, this project utilises computers which can have a negative impact on the environment. However, we expect that the benefit gained by detecting program errors will outweigh the environmental impact of running the software. The software produced will make use of open source software, which will not infringe on their copyright.
+
+ As concolic execution software can find bugs in programs, a malicious attacker who obtained access to a victims source code could use the software to find vulnerabilities in the victim's software which would allow them to cause harm. However, as the program is publicly available to the victim also, they should be able to find and fix this vulnerability with the help of the program and it is worth noting that the software will not create any new vulnerabilities, only expose ones that already exist.
+
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\chapter{Contribution}
+
+To distinguish choices, we record a unique id per branch, memory access, and switch, the condition expression, and the case. We need to compare both the id and the condition expression as the expression not change for different cases, so we need to insert a non-determinism node if the expression is not equal even if the ids are equal.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Contribution}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Experimental Results}
+%\chapter{Experimental Results}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Conclusion}
+We have discussed several ways to implement a memory model for concolic execution. From this we have identified an array model as an achievable goal to implement for the CCF concolic executor. This will enable us to detect memory bugs in C programs by tracking memory accesses and should allow us to discover new, interesting inputs for the program though the concolic paradigm. A successful project will be able to detect a range of memory bugs implanted into a suite of test programs, demonstrating that we are able to distinguish which bugs are present in a given C program.
+
 
 
 %% bibliography
-\bibliographystyle{apa}
+\bibliography{references}
 
 
 \end{document}

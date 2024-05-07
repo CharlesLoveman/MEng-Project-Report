@@ -1,0 +1,311 @@
+@article{memarian2019exploring,
+  title={Exploring C semantics and pointer provenance},
+  author={Memarian, Kayvan and Gomes, Victor BF and Davis, Brooks and Kell, Stephen and Richardson, Alexander and Watson, Robert NM and Sewell, Peter},
+  journal={Proceedings of the ACM on Programming Languages},
+  volume={3},
+  number={POPL},
+  pages={1--32},
+  year={2019},
+  publisher={ACM New York, NY, USA}
+}
+@inproceedings{cadar2008klee,
+  title={{KLEE}: Unassisted and Automatic Generation of High-Coverage Tests for Complex Systems Programs},
+  author={Cadar, Cristian and Dunbar, Daniel and Engler, Dawson R},
+  booktitle={OSDI},
+  volume={8},
+  pages={209--224},
+  year={2008}
+}
+@inproceedings{poeplau2020symbolic,
+  title={Symbolic execution with {SymCC}: Don't interpret, compile!},
+  author={Poeplau, Sebastian and Francillon, Aur{\'e}lien},
+  booktitle={29th USENIX Security Symposium (USENIX Security 20)},
+  pages={181--198},
+  year={2020}
+}
+@article{cadar2008exe,
+  title={EXE: Automatically generating inputs of death},
+  author={Cadar, Cristian and Ganesh, Vijay and Pawlowski, Peter M and Dill, David L and Engler, Dawson R},
+  journal={ACM Transactions on Information and System Security (TISSEC)},
+  volume={12},
+  number={2},
+  pages={1--38},
+  year={2008},
+  publisher={ACM New York, NY, USA}
+}
+@article{leroy2008formal,
+  title={Formal Verification of a C-like Memory Model and Its Uses for Verifying Program Transformations},
+  author={Leroy, Xavier and Blazy, Sandrine},
+  journal={Journal of Automated Reasoning},
+  volume={41},
+  pages={1--31},
+  year={2008},
+  publisher={Springer}
+}
+@inproceedings{xu2010memory,
+  title={A memory model for static analysis of C programs},
+  author={Xu, Zhongxing and Kremenek, Ted and Zhang, Jian},
+  booktitle={Leveraging Applications of Formal Methods, Verification, and Validation: 4th International Symposium on Leveraging Applications, ISoLA 2010, Heraklion, Crete, Greece, October 18-21, 2010, Proceedings, Part I 4},
+  pages={535--548},
+  year={2010},
+  organization={Springer}
+}
+@inproceedings{10.1145/800027.808445,
+author = {Boyer, Robert S. and Elspas, Bernard and Levitt, Karl N.},
+title = {SELECT—a Formal System for Testing and Debugging Programs by Symbolic Execution},
+year = {1975},
+isbn = {9781450373852},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/800027.808445},
+doi = {10.1145/800027.808445},
+abstract = {SELECT is an experimental system for assisting in the formal systematic debugging of programs. It is intended to be a compromise between an automated program proving system and the current ad hoc debugging practice, and is similar to a system being developed by King et al. of IBM. SELECT systematically handles the paths of programs written in a LISP subset that includes arrays. For each execution path SELECT returns simplified conditions on input variables that cause the path to be executed, and simplified symbolic values for program variables at the path output. For conditions which form a system of linear equalities and inequalities SELECT will return input variable values that can serve as sample test data. The user can insert constraint conditions, at any point in the program including the output, in the form of symbolically executable assertions. These conditions can induce the system to select test data in user-specified regions. SELECT can also determine if the path is correct with respect to an output assertion. We present four examples demonstrating the various modes of system operation and their effectiveness in finding bugs. In some examples, SELECT was successful in automatically finding useful test data. In others, user interaction was required in the form of output assertions. SELECT appears to be a useful tool for rapidly revealing program errors, but for the future there is a need to expand its expressive and deductive power.},
+booktitle = {Proceedings of the International Conference on Reliable Software},
+pages = {234–245},
+numpages = {12},
+keywords = {Test data generation, Solution of systems of inequalities, Program testing, Symbolic execution, Program verification, Program debugging},
+location = {Los Angeles, California}
+}
+
+@ARTICLE{1702443,
+  author={Howden, W.E.},
+  journal={IEEE Transactions on Software Engineering}, 
+  title={Symbolic Testing and the DISSECT Symbolic Evaluation System}, 
+  year={1977},
+  volume={SE-3},
+  number={4},
+  pages={266-278},
+  doi={10.1109/TSE.1977.231144}}
+
+
+@inproceedings{10.1145/800027.808444,
+author = {King, James C.},
+title = {A New Approach to Program Testing},
+year = {1975},
+isbn = {9781450373852},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/800027.808444},
+doi = {10.1145/800027.808444},
+abstract = {The current approach for testing a program is, in principle, quite primitive. Some small sample of the data that a program is expected to handle is presented to the program. If the program produces correct results for the sample, it is assumed to be correct. Much current work focuses on the question of how to choose this sample. We propose that a program can be more effectively tested by executing it "symbolically." Instead of supplying specific constants as input values to a program being tested, one supplies symbols. The normal computational definitions for the basic operations performed by a program can be expanded to accept symbolic inputs and produce symbolic formulae as output. If the flow of control in the program is completely independent of its input parameters, then all output values can be symbolically computed as formulae over the symbolic inputs and examined for correctness. When the control flow of the program is input dependent, a case analysis can be performed producing output formulae for each class of inputs determined by the control flow dependencies. Using these ideas, we have designed and implemented an interactive debugging/testing system called EFFIGY.},
+booktitle = {Proceedings of the International Conference on Reliable Software},
+pages = {228–233},
+numpages = {6},
+keywords = {Program verification, Program correctness, Symbolic execution, Symbolic interpretation, Program testing},
+location = {Los Angeles, California}
+}
+
+@article{10.1145/360248.360252,
+author = {King, James C.},
+title = {Symbolic Execution and Program Testing},
+year = {1976},
+issue_date = {July 1976},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {19},
+number = {7},
+issn = {0001-0782},
+url = {https://doi.org/10.1145/360248.360252},
+doi = {10.1145/360248.360252},
+abstract = {This paper describes the symbolic execution of programs. Instead of supplying the normal inputs to a program (e.g. numbers) one supplies symbols representing arbitrary values. The execution proceeds as in a normal execution except that values may be symbolic formulas over the input symbols. The difficult, yet interesting issues arise during the symbolic execution of conditional branch type statements. A particular system called EFFIGY which provides symbolic execution for program testing and debugging is also described. It interpretively executes programs written in a simple PL/I style programming language. It includes many standard debugging features, the ability to manage and to prove things about symbolic expressions, a simple program testing manager, and a program verifier. A brief discussion of the relationship between symbolic execution and program proving is also included.},
+journal = {Commun. ACM},
+month = {jul},
+pages = {385–394},
+numpages = {10},
+keywords = {symbolic execution, program testing, program debugging, program proving, symbolic interpretation, program verification}
+}
+@inproceedings {180957,
+author = {Konstantin Serebryany and Derek Bruening and Alexander Potapenko and Dmitriy Vyukov},
+title = {{AddressSanitizer}: A Fast Address Sanity Checker},
+booktitle = {2012 USENIX Annual Technical Conference (USENIX ATC 12)},
+year = {2012},
+isbn = {978-931971-93-5},
+address = {Boston, MA},
+pages = {309--318},
+url = {https://www.usenix.org/conference/atc12/technical-sessions/presentation/serebryany},
+publisher = {USENIX Association},
+month = jun
+}
+@article{bushstaticanalysis,
+author = {Bush, William R. and Pincus, Jonathan D. and Sielaff, David J.},
+title = {A static analyzer for finding dynamic programming errors},
+journal = {Software: Practice and Experience},
+volume = {30},
+number = {7},
+pages = {775-802},
+keywords = {program analysis, program error checking},
+doi = {https://doi.org/10.1002/(SICI)1097-024X(200006)30:7<775::AID-SPE309>3.0.CO;2-H},
+url = {https://onlinelibrary.wiley.com/doi/abs/10.1002/%28SICI%291097-024X%28200006%2930%3A7%3C775%3A%3AAID-SPE309%3E3.0.CO%3B2-H},
+eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1002/%28SICI%291097-024X%28200006%2930%3A7%3C775%3A%3AAID-SPE309%3E3.0.CO%3B2-H},
+abstract = {Abstract There are important classes of programming errors that are hard to diagnose, both manually and automatically, because they involve a program's dynamic behavior. This article describes a compile-time analyzer that detects these dynamic errors in large, real-world programs. The analyzer traces execution paths through the source code, modeling memory and reporting inconsistencies. In addition to avoiding false paths through the program, this approach provides valuable contextual information to the programmer who needs to understand and repair the defects. Automatically-created models, abstracting the behavior of individual functions, allow inter-procedural defects to be detected efficiently. A product built on these techniques has been used effectively on several large commercial programs. Copyright © 2000 John Wiley \& Sons, Ltd.},
+year = {2000}
+}
+
+
+@inproceedings{paper10,
+  title = "Introduction to Abstract Interpretation",
+  author = "S. Abramsky and C. Hankin",
+  year = "1987",
+  booktitle = "Abstract Interpretation for Declarative Languages",
+  chapter = "1",
+  editor = "S.Abramsky and C. Hankin",
+  pages = "9-31",
+  publisher = "Ellis Horwood",
+}
+@article{10.1145/161494.161501,
+author = {Landi, William},
+title = {Undecidability of Static Analysis},
+year = {1992},
+issue_date = {Dec. 1992},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {1},
+number = {4},
+issn = {1057-4514},
+url = {https://doi.org/10.1145/161494.161501},
+doi = {10.1145/161494.161501},
+abstract = {Static analysis of programs is indispensable to any software tool, environment, or system that requires compile-time information about the semantics of programs. With the emergence of languages like C and LISP, static analysis of programs with dynamic storage and recursive data structures has become a field of active research. Such analysis is difficult, and the static-analysis community has recognized the need for simplifying assumptions and approximate solutions. However, even under the common simplifying assumptions, such analyses are harder than previously recognized. Two fundamental static-analysis problems are may alias and must alias. The former is not recursive (is undecidable), and the latter is not recursively enumerable (is uncomputable), even when all paths are executable in the program being analyzed for languages with if statements, loops, dynamic storage, and recursive data structures.},
+journal = {ACM Lett. Program. Lang. Syst.},
+month = {dec},
+pages = {323–337},
+numpages = {15},
+keywords = {static analysis, abstract interpretation, alias analysis, data flow analysis, halting problem}
+}
+@book{johnson1977lint,
+  title={Lint, a C program checker},
+  author={Johnson, Stephen C},
+  year={1977},
+  publisher={Bell Telephone Laboratories Murray Hill}
+}
+@article{wilson1995efficient,
+  title={Efficient context-sensitive pointer analysis for C programs},
+  author={Wilson, Robert P and Lam, Monica S},
+  journal={ACM Sigplan Notices},
+  volume={30},
+  number={6},
+  pages={1--12},
+  year={1995},
+  publisher={ACM New York, NY, USA}
+}
+
+@InProceedings{10.1007/978-3-540-24605-3_37,
+author="E{\'e}n, Niklas
+and S{\"o}rensson, Niklas",
+editor="Giunchiglia, Enrico
+and Tacchella, Armando",
+title="An Extensible SAT-solver",
+booktitle="Theory and Applications of Satisfiability Testing",
+year="2004",
+publisher="Springer Berlin Heidelberg",
+address="Berlin, Heidelberg",
+pages="502--518",
+abstract="In this article, we present a small, complete, and efficient SAT-solver in the style of conflict-driven learning, as exemplified by Chaff. We aim to give sufficient details about implementation to enable the reader to construct his or her own solver in a very short time. This will allow users of SAT-solvers to make domain specific extensions or adaptions of current state-of-the-art SAT-techniques, to meet the needs of a particular application area. The presented solver is designed with this in mind, and includes among other things a mechanism for adding arbitrary boolean constraints. It also supports solving a series of related SAT-problems efficiently by an incremental SAT-interface.",
+isbn="978-3-540-24605-3"
+}
+
+@incollection{marques2021conflict,
+  title={Conflict-Driven Clause Learning SAT Solvers},
+  author={Marques-Silva, Joao and Lynce, In{\^e}s and Malik, Sharad},
+  booktitle={Handbook of satisfiability},
+  pages={133--182},
+  year={2021},
+  publisher={IOS press}
+}
+
+@Inbook{Barrett2018,
+author="Barrett, Clark
+and Tinelli, Cesare",
+editor="Clarke, Edmund M.
+and Henzinger, Thomas A.
+and Veith, Helmut
+and Bloem, Roderick",
+title="Satisfiability Modulo Theories",
+bookTitle="Handbook of Model Checking",
+year="2018",
+publisher="Springer International Publishing",
+address="Cham",
+pages="305--343",
+abstract="Satisfiability Modulo Theories (SMT) refers to the problem of determining whether a first-order formula is satisfiable with respect to some logical theory. Solvers based on SMT are used as back-end engines in model-checking applications such as bounded, interpolation-based, and predicate-abstraction-based model checking. After a brief illustration of these uses, we survey the predominant techniques for solving SMT problems with an emphasis on the lazy approach, in which a propositional satisfiability (SAT) solver is combined with one or more theory solvers. We discuss the architecture of a lazy SMT solver, give examples of theory solvers, show how to combine such solvers modularly, and mention several extensions of the lazy approach. We also briefly describe the eager approach in which the SMT problem is reduced to a SAT problem. Finally, we discuss how the basic framework for determining satisfiability can be extended with additional functionality such as producing models, proofs, unsatisfiable cores, and interpolants.",
+isbn="978-3-319-10575-8",
+doi="10.1007/978-3-319-10575-8_11",
+url="https://doi.org/10.1007/978-3-319-10575-8_11"
+}
+
+@InProceedings{10.1007/978-3-642-00768-2_16,
+author="Brummayer, Robert
+and Biere, Armin",
+editor="Kowalewski, Stefan
+and Philippou, Anna",
+title="Boolector: An Efficient SMT Solver for Bit-Vectors and Arrays",
+booktitle="Tools and Algorithms for the Construction and Analysis of Systems",
+year="2009",
+publisher="Springer Berlin Heidelberg",
+address="Berlin, Heidelberg",
+pages="174--177",
+abstract="Satisfiability Modulo Theories (SMT) is the problem of deciding satisfiability of a logical formula, expressed in a combination of first-order theories. We present the architecture and selected features of Boolector, which is an efficient SMT solver for the quantifier-free theories of bit-vectors and arrays. It uses term rewriting, bit-blasting to handle bit-vectors, and lemmas on demand for arrays.",
+isbn="978-3-642-00768-2"
+}
+
+@inproceedings {217563,
+author = {Insu Yun and Sangho Lee and Meng Xu and Yeongjin Jang and Taesoo Kim},
+title = {{QSYM} : A Practical Concolic Execution Engine Tailored for Hybrid Fuzzing},
+booktitle = {27th USENIX Security Symposium (USENIX Security 18)},
+year = {2018},
+isbn = {978-1-939133-04-5},
+address = {Baltimore, MD},
+pages = {745--761},
+url = {https://www.usenix.org/conference/usenixsecurity18/presentation/yun},
+publisher = {USENIX Association},
+month = aug
+}
+
+@inproceedings{10.1145/3180155.3180177,
+author = {Wang, Xinyu and Sun, Jun and Chen, Zhenbang and Zhang, Peixin and Wang, Jingyi and Lin, Yun},
+title = {Towards Optimal Concolic Testing},
+year = {2018},
+isbn = {9781450356381},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3180155.3180177},
+doi = {10.1145/3180155.3180177},
+abstract = {Concolic testing integrates concrete execution (e.g., random testing) and symbolic execution for test case generation. It is shown to be more cost-effective than random testing or symbolic execution sometimes. A concolic testing strategy is a function which decides when to apply random testing or symbolic execution, and if it is the latter case, which program path to symbolically execute. Many heuristics-based strategies have been proposed. It is still an open problem what is the optimal concolic testing strategy. In this work, we make two contributions towards solving this problem. First, we show the optimal strategy can be defined based on the probability of program paths and the cost of constraint solving. The problem of identifying the optimal strategy is then reduced to a model checking problem of Markov Decision Processes with Costs. Secondly, in view of the complexity in identifying the optimal strategy, we design a greedy algorithm for approximating the optimal strategy. We conduct two sets of experiments. One is based on randomly generated models and the other is based on a set of C programs. The results show that existing heuristics have much room to improve and our greedy algorithm often outperforms existing heuristics.},
+booktitle = {Proceedings of the 40th International Conference on Software Engineering},
+pages = {291–302},
+numpages = {12},
+location = {Gothenburg, Sweden},
+series = {ICSE '18}
+}
+
+@INPROCEEDINGS{4639362,
+  author={Burnim, Jacob and Sen, Koushik},
+  booktitle={2008 23rd IEEE/ACM International Conference on Automated Software Engineering}, 
+  title={Heuristics for Scalable Dynamic Test Generation}, 
+  year={2008},
+  volume={},
+  number={},
+  pages={443-446},
+  doi={10.1109/ASE.2008.69}}
+
+@inproceedings {257204,
+author = {Andrea Fioraldi and Dominik Maier and Heiko Ei{\ss}feldt and Marc Heuse},
+title = {{AFL++} : Combining Incremental Steps of Fuzzing Research},
+booktitle = {14th USENIX Workshop on Offensive Technologies (WOOT 20)},
+year = {2020},
+url = {https://www.usenix.org/conference/woot20/presentation/fioraldi},
+publisher = {USENIX Association},
+month = aug
+}
+
+@techreport{aflwhitepaper,
+    author = {Michał Zalewski},
+    title = {American Fuzzy Lop - Whitepaper.},
+    url = {https://lcamtuf.coredump.cx/afl/technical_details.txt},
+    year = {2016}
+}
+
+@techreport{defectreport260,
+    author = {WG14},
+    title = {Defect Report 260},
+    url = {http://www.open-std.org/jtc1/sc22/wg14/www/docs/dr_260.htm},
+    year = 2004
+}
