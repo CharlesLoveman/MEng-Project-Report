@@ -303,6 +303,16 @@ If this goes well, it could be extended to test on some real programs, but this 
 
 %Also need correct test cases with no memory bugs. 
 
+I dont know what I'm meant to be writing here.
+
+My contribution can be split into two main sections: the array memory model implementation and the implementation of choice-out-of-k nodes for the execution tree.
+To evaluate the array memory model implementation I will:
+Trace the execution of a number of small programs I have written that contain various violations of the array memory model. A successful implementation will report a memory model violation in each test program that contains a violation, and should not report any violations in tests that do not violate the array memory model.
+To evaluate how the array memory model implementation facilitates program exploration, I will:
+Perform concolic execution on a set of test programs that may violate the array memory model given specific inputs. A successful implementation should find the inputs that lead to violations and report these violations if such an input exist, and should not spuriously report violations when all inputs lead to valid program behaviour.
+To evaluate the implementation of choice-out-of-k nodes for the execution tree, I will:
+Perform concolic execution on a set of simple test programs and measure the program performance for the implementation with choice-out-of-k nodes and compare this to the performance of the original program. We are interested in the program execution time, the amount of memory used, the number of nodes created in the execution tree, the number of SMT queries submitted to the solver, the number of non-determinism nodes created, and anything else I think of. An ideal implementation would improve any or all of these metrics, however, a successful implementation only needs to avoid harming program performance.
+
 
 \chapter{Ethical Issues}
  %Ethical issues (where necessary - 1-2 pages). Are there wider ethical, legal, professional and societal issues surrounding your project and the accompanying research? If there are, please discuss these. You should use the ethics checklist as the basis for this discussion. 
