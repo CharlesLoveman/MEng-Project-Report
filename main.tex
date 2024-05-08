@@ -323,6 +323,20 @@ Concolic execution is an inherently inefficient process, which can have poor sca
 
 Evaluating the choice-out-of-k implementation is more straightforward as we can compare the implementation against the exclusively binary implementation that is already implemented in CCF. Running test programs with both versions will allow us to directly compare the execution time as well as other relevant statistics. As CCF does not have a memory model (other than the array memory model implementation described here), these tests will need to avoid symbolic memory accesses to allow a fair comparison between each implementation.
 
+\begin{figure}
+    \centering
+    \includegraphics{figures/basic-loop.png}
+    \caption{Simple loop program, Array Memory Model and CCF main}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics{figures/non-det.png}
+    \caption{Non-deterministic loop program, Array Memory Model and CCF main, ran for 4 minutes each}
+    \label{fig:enter-label}
+\end{figure}
+
 \chapter{Ethical Issues}
  %Ethical issues (where necessary - 1-2 pages). Are there wider ethical, legal, professional and societal issues surrounding your project and the accompanying research? If there are, please discuss these. You should use the ethics checklist as the basis for this discussion.
  %Just go through the checklist, no big problems here.
