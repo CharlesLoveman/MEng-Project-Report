@@ -292,7 +292,7 @@ Currently, I have implemented updating the shadow memory for allocation and deal
 %Evaluation plan (1-2 pages). Project evaluation is very important, so it's important to think now about how you plan to measure success. For example, what functionality do you need to demonstrate?  What experiments to you need to undertake and what outcome(s) would constitute success?  What benchmarks should you use? How has your project extended the state of the art?  How do you measure qualitative aspects, such as ease of use?  These are the sort of questions that your project evaluation should address; this section should outline your plan.
 
 %Need to distinguish between the bugs we miss on purpose vs the ones we miss by accident.
-A successful project will produce a memory model that correctly identifies memory bugs in C programs. To evaluate this, we will construct a set of synthetic test programs with specific memory bugs inserted to test if the system catches each bug as expected. An ideal solution will catch all bugs of every class, however, in practice the memory model produced may have different performance on each class of bugs. Classifying each synthetic test case by the type of bug present will allow us to evaluate what proportion of each class of bugs are detected. 
+A successful project will produce a memory model that correctly identifies memory bugs in C programs. To evaluate this, we will construct a set of synthetic test programs with specific memory bugs inserted to test if the system catches each bug as expected. An ideal solution will catch all bugs of every class, however, in practice the memory model produced may have different performance on each class of bugs. Classifying each synthetic test case by the type of bug present will allow us to evaluate what proportion of each class of bugs are detected.
 
 % Performance is not as crucial as for some things, but it is important! We need to be able to run the programs.
 % We need the performance to be sufficient to run programs.
@@ -301,28 +301,34 @@ Efficient operation is less important than program correctness, but it is desira
 % Could explain why this is difficult as it may work with
 If this goes well, it could be extended to test on some real programs, but this may not work for various reasons e.g. compiling coreutils with CCF may be difficult as compiling real world C programs is always difficult and it may be made more complicated as CCF is a prototype.
 
-%Also need correct test cases with no memory bugs. 
+%Also need correct test cases with no memory bugs.
 
-I dont know what I'm meant to be writing here.
+%I dont know what I'm meant to be writing here.
+%
+%My contribution can be split into two main sections: the array memory model implementation and the implementation of choice-out-of-k nodes for the execution tree.
+%To evaluate the array memory model implementation I will:
+%Trace the execution of a number of small programs I have written that contain various violations of the array memory model. A successful implementation will report a memory model violation in each test program that contains a violation, and should not report any violations in tests that do not violate the array memory model.
+%To evaluate how the array memory model implementation facilitates program exploration, I will:
+%Perform concolic execution on a set of test programs that may violate the array memory model given specific inputs. A successful implementation should find the inputs that lead to violations and report these violations if such an input exist, and should not spuriously report violations when all inputs lead to valid program behaviour.
+%To evaluate the implementation of choice-out-of-k nodes for the execution tree, I will:
+%Perform concolic execution on a set of simple test programs and measure the program performance for the implementation with choice-out-of-k nodes and compare this to the performance of the original program. We are interested in the program execution time, the amount of memory used, the number of nodes created in the execution tree, the number of SMT queries submitted to the solver, the number of non-determinism nodes created, and anything else I think of. An ideal implementation would improve any or all of these metrics, however, a successful implementation only needs to avoid harming program performance.
 
-My contribution can be split into two main sections: the array memory model implementation and the implementation of choice-out-of-k nodes for the execution tree.
-To evaluate the array memory model implementation I will:
-Trace the execution of a number of small programs I have written that contain various violations of the array memory model. A successful implementation will report a memory model violation in each test program that contains a violation, and should not report any violations in tests that do not violate the array memory model.
-To evaluate how the array memory model implementation facilitates program exploration, I will:
-Perform concolic execution on a set of test programs that may violate the array memory model given specific inputs. A successful implementation should find the inputs that lead to violations and report these violations if such an input exist, and should not spuriously report violations when all inputs lead to valid program behaviour.
-To evaluate the implementation of choice-out-of-k nodes for the execution tree, I will:
-Perform concolic execution on a set of simple test programs and measure the program performance for the implementation with choice-out-of-k nodes and compare this to the performance of the original program. We are interested in the program execution time, the amount of memory used, the number of nodes created in the execution tree, the number of SMT queries submitted to the solver, the number of non-determinism nodes created, and anything else I think of. An ideal implementation would improve any or all of these metrics, however, a successful implementation only needs to avoid harming program performance.
+To evaluate the contribution of this project, we need to evaluate the application of an array memory model to the concolic execution of C programs, our implementation of an array memory model, and the implementation of the choice-out-of-k abstraction for nodes in the execution tree.
 
+The most important feature of the implementation of the array memory model that we need to verify is its correctness. To evaluate correctness, we have created a suite of test programs that interact with memory in various ways. A correct implementation should report memory model violations in each test that violates the memory model and should avoid reporting violations for all that do not. These test programs do not depend on any external input, which will allow us to evaluate the correctness of the array memory model implementation independent of the concolic program exploration. As CCF did not previously have a memory model implementation, it will not be possible to comparatively evaluate the performance of the memory model implementation. However, we can still collect performance metrics for the test suite to demonstrate that the memory model implementation is reasonable.
+
+In practice, it is unlikely that a program which may violate the array memory model would do so without any external input. To evaluate how the array memory model implementation facilitates program exploration during concolic execution to find possible inputs that violate the array memory model, we have a suite of test programs that consume external input and vary their memory interactions depending on that input. A successful implemenation should be able to find inputs that violate the array memory model in programs where such inputs exist, and should never erroneously report memory model violations. A key advantage of concolic execution over static analysis techniques is that it never produces false positives, so it would be a shame to lose this property due to an overly restrictive memory model.
+
+Concolic execution is an inherently inefficient process, which can have poor scaling in two main ways. The first is the use of an SMT solver which can have exponential run-time in the worst case. To evaluate the performance of the SMT queries that are produced when running CCF with the array memory model we can compare the average time taken per SMT query between CCF with and without the array memory model across a variety of test programs as well as the total number of SMT queries produced. A successful implementation should avoid degrading the performance of the SMT solver. The other way concolic execution scales poorly is in the exponential blow-up in the number of paths. This means it is important to minimise the number of nodes to be explored as much as possible without blocking the exporation of any possible path. We can evaluate the 
 
 \chapter{Ethical Issues}
- %Ethical issues (where necessary - 1-2 pages). Are there wider ethical, legal, professional and societal issues surrounding your project and the accompanying research? If there are, please discuss these. You should use the ethics checklist as the basis for this discussion. 
+ %Ethical issues (where necessary - 1-2 pages). Are there wider ethical, legal, professional and societal issues surrounding your project and the accompanying research? If there are, please discuss these. You should use the ethics checklist as the basis for this discussion.
  %Just go through the checklist, no big problems here.
 
  As a computing project, this project utilises computers which can have a negative impact on the environment. However, we expect that the benefit gained by detecting program errors will outweigh the environmental impact of running the software. The software produced will make use of open source software, which will not infringe on their copyright.
 
  As concolic execution software can find bugs in programs, a malicious attacker who obtained access to a victims source code could use the software to find vulnerabilities in the victim's software which would allow them to cause harm. However, as the program is publicly available to the victim also, they should be able to find and fix this vulnerability with the help of the program and it is worth noting that the software will not create any new vulnerabilities, only expose ones that already exist.
 
- 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %\chapter{Contribution}
 
