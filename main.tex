@@ -346,7 +346,65 @@ Evaluating the choice-out-of-k implementation is more straightforward as we can 
  As concolic execution software can find bugs in programs, a malicious attacker who obtained access to a victims source code could use the software to find vulnerabilities in the victim's software which would allow them to cause harm. However, as the program is publicly available to the victim also, they should be able to find and fix this vulnerability with the help of the program and it is worth noting that the software will not create any new vulnerabilities, only expose ones that already exist.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%\chapter{Contribution}
+\chapter{Contribution}
+
+\section{Design}
+% What goes in my design section?
+\subsection{Array Memory Model}
+% What notable desisions did i make in designing the array memory model
+% Need to mention giving each byte a unique id
+% Need to mention recording each object as id + size
+
+The array memory model represents memory objects as occupying a contiguous region of a byte array, where the start of the occupied region for an object $x$ is the offset $&x$ and the size of the occupied region is $sizeof(x)$. To implement such an array memory model directly would have an immediate issue, the size of the byte array would need to be equal to the total addressable memory. For a 64 bit architecture this could be up to $2^64$ bytes or 16 exibytes, which would require almost as much RAM as google chrome. Using a binarytree can reduce this space required as we only store the position and size of each object while allowing us to look up addresses in $\mathcal{O}(\log{}n)$. We also assign each object a unique id, to allow us to efficiently check if two memory accesses hit the same object by comparing their ids.
+
+One drawback of the array memory model is that we do not represent subobjects in the model. This means we will not represent the fact that a memory access may have been able to access different subobjects inside of the accessed object. To illustrate the problem, consider a double indirection by way of an array of pointers. Our implementation of the array memory model could only emit a constraint that an access to this array was within the array and we cannot express the possiblity of accessing each individual pointer in the array. As a result, performing concolic execution on the test program in \ref{DoubleIndirection} would not be able to find the memory model violation caused by passing the input $0x2$ which results in dereferencing an invalid pointer.
+
+The best way to handle this would be to model the contents of the memory object using the theory of arrays. This would allow us to construct a symbolic value representing an access to any portion of the memory object.
+To work around not having access to the theory of arrays, we allocated ids $[id \dots id + size)$ to each memory object, allowing us to treat an access starting with each byte of an object as a separate case. This has the immediate downside of exhaustively searching each accessible byte of each memory object, even if this has no further effect on the execution. This results in $\mathcal{O}(n)$ SMT queries per object instead of $\mathcal{O}(1)$, but as this allows us to detect many memory model violations that would not otherwise be found, this is an acceptable trade-off.
+
+\begin{figure}
+    \centering
+    \begin{lstlisting}[language=C]
+#include <unistd.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <stdlib.h>
+
+int main(void) {
+    u_int8_t inp[6];
+    int n = 4;
+    int** arr = calloc(n, sizeof(int*));
+    arr[0] = calloc(1, sizeof(int));
+    arr[1] = calloc(1, sizeof(int));
+    arr[3] = calloc(1, sizeof(int));
+    int bytes_read = read(STDIN_FILENO, &inp, 5);
+    if (inp[0] > 3) {
+        return 0;
+    }
+    int x = arr[inp[0]][0];
+    return 0;
+}
+\end{lstlisting}
+    \caption{some code}
+    \label{DoubleIndirection}
+\end{figure}
+
+
+
+\subsection{Choice-Out-Of-K}
+% What did I do to implement choices?
+% Need to mention lazy model and default model and why lazy is better
+% Need to talk about avoiding extra smt calls
+% Need to define the execution tree as the tree constructed from all execution traces we have observed, maybe not here though
+
+% Need to justify why I did any of this - remember to lead with abstraction - it works in general and makes everything simpler
+CCF's original implementation of the execution tree only allowed for binary choices which was reasonable as most branches in a program are binary. In order to encode a switch statement using only binary choices and allowing for matching against previous traces, the original implementation would emit a binary constraint of $\neg{(condition\_expr \eq case)}$ for each previous switch case that we did not hit and finally emit a binary constraint of $(condition\_expr \eq case)$ for the case we hit. This meant we emitted on average $\frac{n}{2}$ constraints for each switch we encountered. This was acceptable for switches as in real world cases we rarely see extremely large switch statements. However, the number of valid targets for a memory access under the array memory model is equal to the number of memory objects allocated at that execution point. This means every memory access behaves like a large switch.
+
+A natural extension of the execution tree would be to allow each node in the tree to have $k$ children, which would allow each switch and memory access to represented using a single node in the execution tree. Not only does this reduce the number of constraints we need to emit per branch to a constant (1), but it also means the execution tree generated more closely matches the definition of the execution tree of having each node represent a branch.
+
+One way to implement choice-out-of-k nodes is to represent all branches as switches. A switch statement is defined by a condition expression, a set of cases which each have a constant case value, and a default case which handles all other values. This can generalise binary decisions by using the binary condition expression as the switch condition expression and having one case with a case value of true and use the default case for when the condition expression evaluates to false. It can also generalise memory accesses using the address expression as the condition expression and each memory object is a separate case. This leaves the case where no memory object was accessed as the default case. The main advantage of this approach is reducing expression duplication. As we only store the condition expression once we limit the memory used and we can generate the full constraint to pass to the solver only when it is required as we store all the necessary information in the execution tree.
+
+When creating a choice-out-of-k node, we have to choose between transmitting all possible cases immediately or transmitting cases only when we reach that case in a concrete execution. Transmitting cases lazily has a clear advantage as it means we never transmit an unsatisfiable case, reducing the number of SMT queries we have to execute to find all possible cases. However, when we reach a default case we then need to transmit the negation of an overapproximation of the possible cases to ensure we still allow all possible cases to be found. This should minimise the number of queries but means that the default case requires us to duplicate the information of all other cases which could waste memory.
 
 To distinguish choices, we record a unique id per branch, memory access, and switch, the condition expression, and the case. We need to compare both the id and the condition expression as the expression not change for different cases, so we need to insert a non-determinism node if the expression is not equal even if the ids are equal.
 
