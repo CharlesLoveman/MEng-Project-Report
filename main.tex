@@ -71,6 +71,8 @@ Unfortunately, it is impossible to find all memory bugs in a C program at static
 
 CCF is a new concolic execution project which aims to find bugs in C programs. As it currently lacks an implementation to detect memory bugs, this project aims to implement a memory model that will be able to identify where the execution differs from the defined behaviour of a C program. 
 
+%contributions are: implementation of array memory model for CCF and implementation of choice-out-of-k nodes in the execution tree
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Background}
@@ -204,7 +206,9 @@ A concolic executor exploring Figure \ref{fig:foopaths} would select a random in
 
 % prototype
 % missing some features e.g. memory model - not tweaking, need to build from scratch
-CCF is a new concolic executor that aims to improve on existing concolic executors by efficiently executing C programs concolically and providing support for external function calls. This should allow for a greater variety of C programs to be executed which could promote the use of concolic execution on real programs. As CCF is a prototype it has some features that are yet to be implemented. One example of this is a memory model, so for this project we will implement a memory model from scratch.
+CCF is a new concolic executor that aims to improve on existing concolic executors by efficiently executing C programs concolically and providing support for external function calls. This should allow for a greater variety of C programs to be executed which could promote the use of concolic execution on real programs. As CCF is a prototype it has some features that are yet to be implemented. One example of this is a memory model, so this project we will implement a memory model from scratch.
+
+CCF is a complex project composed of many sub-systems. To facilitate concolic testing, CCF first instruments the system under test to insert function calls to a concolic runtime which will keep track of program metadata including the symbolic expressions associated with each concolic value in the system under test. To do this, CCF builds upon the LLVM infrastructure to implement its instrumentation, and symbolic expressions inside of CCF are represented using LLVM IR. The concolic runtime is injected into the system under test and can be used independently to trace concrete executions of the program, however, in order to perform concolic execution the runtime needs to connect to a worker process. Each worker maintains a copy of the execution tree, which it uses to record the execution paths previously explored. The worker finds new inputs by finding the path constraint to an unexplored program node and querying an SMT solver to produce an input that should explore a new execution path, assuming there is no non-determinism. Finally these worker processes are organised by a master process that provides an interface to control the behaviour of CCF.
 
 
 \section{Memory Models}
@@ -350,7 +354,10 @@ Evaluating the choice-out-of-k implementation is more straightforward as we can 
 
 \section{Design}
 % What goes in my design section?
-\subsection{Array Memory Model}
+% This report is all about A C Memory Model for use with Concolic Testing
+% What does it mean for a memory model to be for use with concolic testing? How does concolic execution affect the design of our memory model
+We implement an array memory model into CCF and adapt CCF's internal representation of the execution tree to better represent memory accesses.
+% \subsection{Array Memory Model}
 % What notable desisions did i make in designing the array memory model
 % Need to mention giving each byte a unique id
 % Need to mention recording each object as id + size
