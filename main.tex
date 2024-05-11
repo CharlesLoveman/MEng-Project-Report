@@ -86,8 +86,6 @@ CCF is a new concolic execution project which aims to find bugs in C programs. A
 %Undefined Behaviour and C
 %What are the problems?
 
-\section{Program Testing}
-
 %\begin{tikzpicture}[>=stealth]
 %\draw[draw=none, use as bounding box] (-4,0.5) rectangle (4,-6);
 %\node[draw,rounded corners=3pt,fill=blue!20] (conc) {\texttt{int x = concrete\_int();}}; \uncover<2->{\node[right=0.3cm of conc] {$\left\lbrace\;\right\rbrace$};}
@@ -203,6 +201,10 @@ Concolic execution can be considered an offline version of symbolic execution. W
 
 A concolic executor exploring Figure \ref{fig:foopaths} would select a random input initially, for example 6. In execution it would reach both the $x < 0$ and $x > 5$ branch nodes, finally reaching the $x = 5$ output. Then it would randomly select a condition, for example $x > 5$, and determine if there is an input that would take the same path up to this point, but then take the other direction. This gives the condition $\neg(x < 0) \wedge \neg(x > 5)$, which an SMT solver can solve to produce a satisfying assignment of $3$. The solver would then run a new execution with the input $x = 3$.
 
+Concolic execution should reach a higher test throughput than symbolic execution, as the system under test is executed natively. This means each input executes faster and we should be able to explore a greater portion of the execution tree. At each symbolic branch symbolic execution has to fork its process to explore each side of the branch, this creates a higher overhead compared to concolic execution.
+
+In symbolic execution the SMT solver is queried at each symbolic branch to determine if there are satisfying inputs that will take each side of the branch. In concolic execution the condition expression takes a concrete value and can branch immediately. Instead of querying the solver at each branch, the solver is queried once with all branch condition for a path to determine if an input exists. This should reduce the number of SMT queries made which will improve performance.
+
 
 % prototype
 % missing some features e.g. memory model - not tweaking, need to build from scratch
@@ -210,6 +212,7 @@ CCF is a new concolic executor that aims to improve on existing concolic executo
 
 CCF is a complex project composed of many sub-systems. To facilitate concolic testing, CCF first instruments the system under test to insert function calls to a concolic runtime which will keep track of program metadata including the symbolic expressions associated with each concolic value in the system under test. To do this, CCF builds upon the LLVM infrastructure to implement its instrumentation, and symbolic expressions inside of CCF are represented using LLVM IR. The concolic runtime is injected into the system under test and can be used independently to trace concrete executions of the program, however, in order to perform concolic execution the runtime needs to connect to a worker process. Each worker maintains a copy of the execution tree, which it uses to record the execution paths previously explored. The worker finds new inputs by finding the path constraint to an unexplored program node and querying an SMT solver to produce an input that should explore a new execution path, assuming there is no non-determinism. Finally these worker processes are organised by a master process that provides an interface to control the behaviour of CCF.
 
+As CCF allows you to call uninstrumented external functions, the behaviour of the program under test may be non-deterministic. This is a problem for concolic execution, as it means that an input that satisfies the path constraint for a particular program point when executed may take a different execution path. We have no way to guarantee that we have explored all program paths after non-determinism has occurred and there is also no guarantee that if CCF finishes execution the program is bug-free. Non-determinism is detected when the path constraint from a new input does not match the execution tree and CCF creates a non-determinism node at the point the path constraint diverges. This helps to minimise the effects of non-determinism as they are localised to the smallest subtree that requires non-determinism. As non-determinism makes it impossible to guarantee correctness, we will often assume no non-determinism occurs when discussing the properties of the memory model.
 
 \section{Memory Models}
 A program can only have a bug if we define a set of rules that specify what behaviour is legal and what is not. A memory model is a formal description of the memory store and operations over it \cite{leroy2008formal}. As the C standard does not provide an executable memory model checker, there are a variety of interpretations of the C memory model which have been proposed.
@@ -232,14 +235,15 @@ Writing to a symbolic location is more difficult. If you represented the memory 
 \chapter{Related Work}
 %Empty chapters!!!
 \section{C Memory Models}
-%Talk
+As C is a widely used programming language that is applicable across a variety of problem domains, a variety of approaches have been taken to modelling how a valid C program may interact with memory.
 \subsection{Name binding}
-Name binding is a simple form of memory management where memory objects are allocated and associated with a name in the program. When an object is created we give it a name that is not used for any other live object. By referring to the name of an object, this should uniquely identify the object allowing us to model objects as completely separate from each other. This model is simple and easy to implement, however, C requires objects to be resident in memory and gives ways to access the memory representation of each object. As pointers allow multiple names to be associated with the same memory object, the name binding model is insufficient to model C with pointers \cite{xu2010memory}.
+Name binding is a simple form of memory management where memory objects are allocated and associated with a name in the program. When an object is created we give it a name that is not used for any other live object. By referring to the name of an object, this should uniquely identify the object allowing us to model objects as completely separate from each other. This model is intuitive and allows us to make strong claims about how memory is accessed in programming languages where it can be applied.
+This model is simple and easy to implement, however, C requires objects to be resident in memory and gives ways to access the memory representation of each object. As pointers allow multiple names to be associated with the same memory object, the name binding model is insufficient to model C with pointers \cite{xu2010memory}.
 
 \subsection{Array Model}
 Modelling memory as an array is used in many applications~\cite{cadar2008klee,cadar2008exe,leroy2008formal,poeplau2020symbolic}. When memory objects are allocated they inhabit a region of the array and valid memory accesses must lie within one of these regions. This makes an array model more appropriate for modelling memory for a C program as C guarantees that an object will be resident in memory for the duration of its lifetime and any accesses to the memory occupied by the object must be valid for that duration.
 
-One way to implement an array model is to directly map memory into a single array, this allows for very fast access and write times as these operations can be implemented directly as array operations. One application that uses a direct mapped array is ASAN \cite{180957}. The disadvantage of using a single array is that it uses a large amount of memory as each byte of program memory needs to be represented by at least one bit in the array. If the program does not use the entire address space this could be very wasteful and if the memory model requires more metadata per byte of memory a flat array can quickly become infeasible.
+One way to implement an array model is to directly map memory into a single array, this allows for very fast access and write times as these operations can be implemented directly as array operations. One application that uses a direct mapped array is ASAN \cite{180957}. The disadvantage of using a single array is that it uses a large amount of memory as each byte of program memory needs to be represented by at least one bit in the array. If the program does not use the entire address space this could be very wasteful and if the memory model requires more metadata per byte of memory a flat array can quickly become infeasible. Therefore any implementation of an array memory model must decide which portions of memory to represent and how much metadata is stored per byte.
 
 EXE \cite{cadar2008exe} and KLEE \cite{cadar2008klee} represent memory allocations using one array per memory object. This offers a clear advantage over using a single array as we only allocate memory that we will use. However, it also introduces complications if a memory access may span over multiple arrays. For symbolic executors smaller arrays are necessary, as a write to a symbolic address in an array can become problematic if the array is too large. Using an update list only requires one record to be stored per update, which is more efficient than recording every possible value for the state of the array. A limitation of this model is that pointers to pointers must be concretised to access the second level pointer, however this isn't an issue for concolic execution.
 
@@ -260,10 +264,14 @@ Static analysis is relevant to finding memory errors, as analyses that track poi
 
 \section{Symbolic Execution}
 \subsection{KLEE}
-KLEE \cite{cadar2008klee} is a popular symbolic execution tool, which has been extended to support concolic execution. KLEE's object memory model is an instance of an array memory model, where each object is allocated its own array. As a symbolic executor, KLEE focuses on efficient process duplication, which is less important for a concolic executor. KLEE's implementation of symbolic arrays uses an update list which allows for efficient storage of symbolic modifications of arrays. As memory is modelled using a collection of arrays this is important to produce efficient SMT queries.
+KLEE \cite{cadar2008klee} is a popular symbolic execution tool, which has been extended to support concolic execution. KLEE interprets LLVM IR, which allows it to perform symbolic execution on C programs that have been compiled by the Clang compiler. LLVM IR is simpler to interpret than working with C programs directly and is multi-platform unlike interpreting assembly. However, the misalignment between wanting to find bugs in C programs and searching for bugs in LLVM IR can potentially cause issues. One example of this is that Clang makes assumptions about the correctness of the input program, and can change program behaviour even with all optimisations turned off \cite{unstable code paper}.
+
+KLEE's object memory model is an instance of an array memory model, where each object is allocated its own array. As a symbolic executor, KLEE focuses on efficient process duplication, which is less important for a concolic executor. KLEE's implementation of symbolic arrays uses an update list which allows for efficient storage of symbolic modifications of arrays. As memory is modelled using a collection of arrays this is important to produce efficient SMT queries.
 
 \subsection{SymCC}
  SymCC \cite{poeplau2020symbolic} is a recent concolic executor which aims to achieve greater performance through executing compiled code directly. As the code is not interpreted, it must be instrumented at compile time to insert code to track memory allocations. They implement a shadow memory to record symbolic data related to the execution. 
+
+% SymCC doesn't handle external function calls. Does it have any non-determinism?
 
 \section{Compiler Sanitizers}
 GCC and Clang implement instrumentation tools called sanitizers which insert run-time checks into the compiled binary to determine if a bug is present at execution time. This can be useful in cases where static analysis fails to identify an error, but it also fails to eliminate the possibility of a bug. For many types of undefined behaviour it is significantly easier to identify a bug at execution time when we only deal with concrete values and a single execution path. For these issues, a sanitizer can identify where the issue happens by adding extra checks into the program and halting execution if the program enters an illegal state.
