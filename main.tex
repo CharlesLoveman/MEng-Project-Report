@@ -385,9 +385,13 @@ We implement an array memory model into CCF and adapt CCF's internal representat
 
 The array memory model represents memory objects as occupying a contiguous region of a byte array, where the start of the occupied region for an object $x$ is the offset $&x$ and the size of the occupied region is $sizeof(x)$. To implement such an array memory model directly would have an immediate issue, the size of the byte array would need to be equal to the total addressable memory. For a 64 bit architecture this could be up to $2^64$ bytes or 16 exibytes, which would require almost as much RAM as google chrome. Using a binarytree can reduce this space required as we only store the position and size of each object while allowing us to look up addresses in $\mathcal{O}(\log{}n)$. We also assign each object a unique id, to allow us to efficiently check if two memory accesses hit the same object by comparing their ids.
 
-One drawback of the array memory model is that we do not represent subobjects in the model. This means we will not represent the fact that a memory access may have been able to access different subobjects inside of the accessed object. To illustrate the problem, consider a double indirection by way of an array of pointers. Our implementation of the array memory model could only emit a constraint that an access to this array was within the array and we cannot express the possiblity of accessing each individual pointer in the array. As a result, performing concolic execution on the test program in \ref{DoubleIndirection} would not be able to find the memory model violation caused by passing the input $0x2$ which results in dereferencing an invalid pointer.
+\subsubsection{Sub-Objects}
+C-objects can constructed recursively, allowing us to create complex data structures such as structs that contain structs. Although this gives us a lot of freedom to change how data is arranged, it is difficult to represent in the array memory model. This is because memory objects do not have internal structure and cannot be defined recursively, they only have a position and a size.
 
-The best way to handle this would be to model the contents of the memory object using the theory of arrays. This would allow us to construct a symbolic value representing an access to any portion of the memory object.
+As some memory bugs depend on accessing specific sub-objects, it would be impossible for the array memory model to find these bugs. To illustrate the problem, consider a double indirection by way of an array of pointers as in \ref{DoubleIndirection}. Under concolic execution, a naive implementation of the array memory model would produce a constraint with two cases, either the memory access $arr[inp[0]]$ is within the memory object pointed to by $arr$, or it is not. If we got unlucky and failed to try the input $0x2$ immediately, the case where the memory access was within the memory object would be considered satisfied and we would not try to access other sub-objects of $arr$. As a result, we would not detect the null-pointer dereference.
+
+The best way to handle this would be to model the contents of the memory object using the theory of arrays. This would allow us to construct a symbolic value representing an access to any portion of the memory object. Unfortunately, CCF does not currently support this SMT theory.
+
 To work around not having access to the theory of arrays, we allocated ids $[id \dots id + size)$ to each memory object, allowing us to treat an access starting with each byte of an object as a separate case. This has the immediate downside of exhaustively searching each accessible byte of each memory object, even if this has no further effect on the execution. This results in $\mathcal{O}(n)$ SMT queries per object instead of $\mathcal{O}(1)$, but as this allows us to detect many memory model violations that would not otherwise be found, this is an acceptable trade-off.
 
 \begin{figure}
@@ -405,7 +409,7 @@ int main(void) {
     arr[0] = calloc(1, sizeof(int));
     arr[1] = calloc(1, sizeof(int));
     arr[3] = calloc(1, sizeof(int));
-    int bytes_read = read(STDIN_FILENO, &inp, 5);
+    int bytes_read = read(STDIN_FILENO, &inp, 1);
     if (inp[0] > 3) {
         return 0;
     }
@@ -416,6 +420,20 @@ int main(void) {
     \caption{some code}
     \label{DoubleIndirection}
 \end{figure}
+
+\subsubsection{Constraint Generation}
+The simplest constraint we could generate for an access to address $sym_ptr$ with size $sym_size$ which hit a memory object starting at $obj_pos$ with size $obj_size$ would be $obj\_pos \leq sym\_ptr \wedge sym\_ptr + sym\_size\leq obj\_pos + obj\_size$. This works well for a basic implementation of the array memory model.
+
+To allow for accessing sub-objects, we introduce a per byte object id $obj\_id \eq obj\_pos + offset$, and create the constraint $sym\_ptr \eq obj\_id \wedge sym\_ptr + sym\_size\leq obj\_pos + obj\_size$.
+
+CCF matches execution traces to the execution tree by walking down the tree from the root and checking that each constraint encountered in the execution tree matches a valid option at that point in the execution tree. It matches the constraints by directly comparing them and checking if the constraint equals the constraint or its negation. Unfortunately, memory allocation addresses are inherently non-deterministic. This means that checking against the constraints described above would never result in a match as the $obj\_pos$ is non-deterministic.
+
+To overcome this, we changed the execution tree to match constraints using a unique id for each code location in the LLVM IR. We modified how CCF
+
+\subsubsection{Limitations}
+C-objects have an associated memory alignment which restricts which addresses they can be written to and from. The array memory model does not represent this as it treats each memory object as a flat array. Therefore, we cannot detect unaligned accesses even though these can cause crashes on some hardware.
+
+The implementation of sub-objects has bad scaling for large memory objects with many accessible bytes.
 
 
 
@@ -446,7 +464,54 @@ To distinguish choices, we record a unique id per branch, memory access, and swi
     \label{fig:successful-tests}
 \end{figure}
 
-Figure \ref{fig:successful-tests} shows the results of executing the synthetic test suite with the original version of CCF, modified to include some bug fixes, CCF with choice-out-of-k nodes implemented but using a behaviourless dummy memory model, and CCF with choice-out-of-k nodes and the array memory model implementation. We can see that the original version of CCF passes 17 out of 49 tests, corresponding to the tests that ensure no error is reported for correct program behaviour. This is the expected result as CCF does not use a memory model implementation so it should not produce any errors. With the implementation of the array memory model, the ability to detect memory bugs is greatly increased and CCF is able to correctly produce error messages for all tests that contain errors. This shows that the implementation of the array memory model matches the design of the array memory model described earlier. 
+Figure \ref{fig:successful-tests} shows the results of executing the synthetic test suite with the original version of CCF, modified to include some bug fixes, CCF with choice-out-of-k nodes implemented but using a behaviourless dummy memory model, and CCF with choice-out-of-k nodes and the array memory model implementation. We can see that the original version of CCF passes 17 out of 49 tests, corresponding to the tests that ensure no error is reported for correct program behaviour. This is the expected result as CCF does not use a memory model implementation so it should not produce any errors. With the implementation of the array memory model, the ability to detect memory bugs is greatly increased and CCF is able to correctly produce error messages for all tests that contain errors. This shows that the implementation of the array memory model matches the design of the array memory model described earlier.
+
+\begin{figure}
+    \centering
+    \includegraphics{switch-compile-times.png}
+    \caption{The time taken to compile \ref{LargeSwitch} using the original version of CCF and CCF with the array memory model and choice-out-of-k nodes.}
+    \label{fig:switch-compile-times-figure}
+\end{figure}
+
+Figure \ref{fig:switch-compile-times-figure} shows how the implementation of choice-out-of-k nodes makes compiling large switch statements significantly faster. We would expect this as the previous algorithm to convert switches into binary choices emitted $\mathcal{O}(n^2)$ binary constraints in total while using choices only requires us to emit $\mathcal{O}(n)$ constraints. As well as giving a large speed-up this also means that programs that use significantly larger switches can now be compiled, as in testing we found that clang would fail to instrument very large switch statements with the original version of CCF. 
+
+\begin{figure}
+    \centering
+    \begin{lstlisting}[language=C]
+#include <unistd.h>
+#include <sys/types.h>
+#include <fcntl.h>
+
+int main(void) {
+    u_int8_t arr[256];
+    u_int8_t inp[1];
+    u_int8_t inp_3[1];
+    int bytes_read = read(STDIN_FILENO, &inp, 5);
+    if (bytes_read == 0) {
+        return 0;
+    }
+    u_int16_t condition = 0;
+    for (u_int8_t i = 0; i < 8; ++i) {
+        condition |= ((u_int16_t) (inp[0] & (((u_int8_t) 1) << i))) << (2 * i);
+    }
+    switch(condition) {
+    case 0:
+        return 0;
+    case 1:
+        return 0;
+    case 2:
+        return 0;
+    case 3:
+        return 0;
+    \dots
+    default:
+        return 0;
+    }
+}
+\end{lstlisting}
+    \caption{Large switch statement with 750 cases.}
+    \label{LargeSwitch}
+\end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Conclusion}
