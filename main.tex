@@ -438,8 +438,15 @@ To distinguish choices, we record a unique id per branch, memory access, and swi
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%\chapter{Experimental Results}
+\chapter{Experimental Results}
+\begin{figure}
+    \centering
+    \includegraphics{successful_tests.png}
+    \caption{The proportion of successful tests out of the 49 synthetic tests created. Tested with the original version of CCF, CCF with the choice-out-of-k nodes, and CCF with choice-out-of-k and the memory model. The memory model clearly results in an increase in the ability to detect memory bugs.}
+    \label{fig:successful-tests}
+\end{figure}
 
+Figure \ref{fig:successful-tests} shows the results of executing the synthetic test suite with the original version of CCF, modified to include some bug fixes, CCF with choice-out-of-k nodes implemented but using a behaviourless dummy memory model, and CCF with choice-out-of-k nodes and the array memory model implementation. We can see that the original version of CCF passes 17 out of 49 tests, corresponding to the tests that ensure no error is reported for correct program behaviour. This is the expected result as CCF does not use a memory model implementation so it should not produce any errors. With the implementation of the array memory model, the ability to detect memory bugs is greatly increased and CCF is able to correctly produce error messages for all tests that contain errors. This shows that the implementation of the array memory model matches the design of the array memory model described earlier. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Conclusion}
