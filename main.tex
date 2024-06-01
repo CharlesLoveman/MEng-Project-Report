@@ -13,6 +13,7 @@
 % load some macros
 \input{notation}
 
+\usetikzlibrary{shapes}
 %\usepackage[
 %backend=biber,
 %style=apa,
@@ -60,20 +61,22 @@
 %1-3 pages
 % It’s a good idea to try to write the introduction to your final report early on in the project. However, you will find it hard, as you won’t yet have a complete story and you won’t know what your main contributions are going to be. However, the exercise is useful as it will tell you what you don’t yet know and thus what questions your project should aim to answer. For the interim report this section should be a short, succinct, summary of the project’s main objectives. Some of this material may be re-usable in your final report, but the chances are that your final introduction will be quite different.  You are therefore advised to keep this part of the interim report short, focusing on the following questions: What is the problem, why is it interesting and what’s your main idea for solving it?  (DON'T use those three questions as subheadings however!  The answers should emerge from what you write.)
 
- %The problem is - CCF is a new bug finding program, but it doesn't have any way to detect memory bugs. So I need to implement some way of detecting program behaviour that violates the C standard, and produce constraints that generate interesting inputs based on the memory behaviour.
-% Why is this interesting - C is notorious for its dodgy memory behaviour, and it is necessary to detect bugs that would otherwise pass silently in execution.
-% How are we going to solve it - track memory accesses and record behaviour, check that it is okay and then generate constraints that accesses must lie within valid memory objects.
+Program vulnerabilities can be hugely damaging and the annual cost of software exploits increases year on year. There is a wide range of possible exploits, but one of the most commonly exploited classes of vulnerabilities are caused by memory bugs. These bugs occur when the program violates the rules that govern how a program may interact with memory, called the memory model of the programming language, and these bugs can be very difficult to find. 
 
+Each programming language uses a different memory model, but there is a general model used by many programming languages that is particularly vulnerable. If we consider the memory address space to be a set of bytes, each memory object can be described by a location and a set of bytes that makes up the memory object which is a subset of the address space. Valid memory accesses must be fully contained within a single memory object.
 
-C is a systems programming language widely used for performance programming. It is difficult to write bug free C programs, there are many ways to cause undefined behaviour and implementations of C will often pass over erroneous code silently. Memory bugs are difficult to find as in some cases they may show no symptoms, such as a buffer overflow which will only be visible if it crosses a page boundary or overwrites important data. These bugs have occurred in almost every large scale system and it is important to be able to find and eliminate these bugs.
+By imposing the minimum requirements on how the program validates its own behaviour, violations of this model can be hidden or cause unexpected behaviour. Despite these issues, this family of programming languages includes C and C++, two of the most popular languages in the world. They take advantage of the simple rules to produce highly efficient programs and have been used to implement almost all high performance software including operating systems and other critical systems.
 
-Unfortunately, it is impossible to find all memory bugs in a C program at statically. As a result, we need to apply a dynamic analysis to determine if there are memory bugs in a program. Concolic execution is a form of dynamic analysis that follows a single execution through the program and discovers each branching point encountered. It then selects a branching point and uses symbolic reasoning to determine if an input exists to follow the branch not taken in a previous execution. In this way we efficiently explore the program and can discover bugs in the executions we follow.
+Due to the inherently dynamic nature of memory operations in this memory model, we cannot verify statically if a program violates the memory model. Instead, we need to implement a dynamic system to check if the model has been violated at runtime. This is similar to the behaviour of memory sanitizers like ASAN, which instrument the target program so that when it is run the memory errors are reported. 
 
-CCF is a new concolic execution project which aims to find bugs in C programs. As it currently lacks an implementation to detect memory bugs, this project aims to implement a memory model that will be able to identify where the execution differs from the defined behaviour of a C program. 
+Despite the existence of tools like ASAN which can detect memory errors, manual and randomised testing campaigns can still miss bugs in programs. The reason is that if you don't guess an input which triggers the bug, it cannot be reported. Concolic execution tackles this problem by recording the constraints that had to be met on the input to the program to take a particular path through the program and uses an SMT solver to find new inputs which take different paths through the program. This gives us an automated method to increase test coverage and generate new inputs which could detect bugs.
 
-%contributions are: implementation of array memory model for CCF and implementation of choice-out-of-k nodes in the execution tree
+For concolic execution to construct these constraints, we need to store metadata regarding the operations that have been performed on the values of the program during execution. As we already store metadata about program values, this can be extended to add support for a memory model checker which will validate each memory access the target program performs. We design and implement a memory model checker into a prototype concolic execution framework called CCF.
 
+\begingroup
+\let\clearpage\relax
 \chapter{Ethical Issues}
+\endgroup
  %Ethical issues (where necessary - 1-2 pages). Are there wider ethical, legal, professional and societal issues surrounding your project and the accompanying research? If there are, please discuss these. You should use the ethics checklist as the basis for this discussion.
  %Just go through the checklist, no big problems here.
 
@@ -89,116 +92,96 @@ CCF is a new concolic execution project which aims to find bugs in C programs. A
 
 %In writing the Background chapter you must demonstrate your ability to analyse, synthesise and apply critical judgement. Analysis is shown by explaining how the proposed solution operates in your own words as well as its benefits and consequences. Synthesis is shown through the organisation of your Related Work section and through identifying and generalising common aspects across different solutions. Critical judgement is shown by discussing the limitations of the solutions proposed both in terms of their disadvantages and limits of applicability.
 
-All sufficiently complex software systems contain errors and finding these errors is a consistent source of difficultly across all domains of computing. Although the C Programming Language is widely used, it is an unsafe language that makes it easy for programmers to write incorrect code that produces difficult to debug behaviour. The widespread use of C and C-like languages such as C++ has resulted in a substantial amount of effort put into developing techniques to find bugs in C programs.
+Every programming language has a specification for how a program may interact with memory, although for some languages this is not always clearly defined. This definition of a set of rules regarding memory interactions is called a memory model and a violation of these rules is a memory bug. As a memory bug occurs due to a violation of the rules of the programming language, memory bugs are undeniably incorrect. This makes memory bugs a viable target for automated testing as we know that if we find a memory bug it is a real bug in the program.
 
+The memory model of many programming languages can be modelled with a general memory model. We define the address space of a program to be the set of bytes that can be accessed by the program. Although these languages may have many different types of objects, we define the representation of the object in memory as a memory object. A memory object only has a location and set of bytes, which must be a subset of the address space. It is important to note that memory objects have no internal structure and cannot be defined recursively. On most architectures, the set of bytes allocated to a memory object will be contiguous, although we do not require this for the memory model.
 
-Various classes of bugs can occur in C programs, from simple syntactic errors to perplexing parallelism problems. We are focused on memory bugs, a class of errors that includes out-of-bounds accesses and unsafe use-after-free behaviours. In essence, a memory bug occurs whenever the program under test interacts with the computers memory in a way that is forbidden by the C standard. It is important to understand that we are exclusively interested in behaviour that is always incorrect and it is entirely possible that a program may have no memory bugs by this definition while still behaving in a way that the programmer does not expect. We focus only on these bugs as we have no way to determine what the intention of the programmer was, but we do know that the programmer does not want to trigger undefined (or in any other way explicitly disallowed) behaviour in C.
+Bytes in memory can either be allocated, which means they are an element of exactly one live memory object, or they are unallocated, which means they are not contained in any memory object. A valid allocation takes a set of unallocated bytes, and constructs a new memory object that contains only those bytes. A valid deallocation takes a set of bytes which is equal to the set of bytes allocated to a single memory object and removes the memory object, leaving the set of bytes unallocated. A valid memory access takes a set of allocated bytes, which are all contained within the same memory object.
 
-It is worth focusing on memory bugs as this class of bugs can occur in any C program and can be difficult to reason about manually. Large programs may create millions of memory objects and to try and fully understand the behaviour and interactions with these objects across a large code base would be almost impossible. We can see this in the many security vulnerabilites that have been caused by memory bugs including the famous heartbleed\cite{CVE-2014-0160} vulnerability in OpenSSL. These bugs can cause great harm and producing tools that can identify these issues before they become vulnerabilities could help increase confidence in the critical software we use every day.
-%Need to explain:
-%Undefined Behaviour and C
-%What are the problems?
+\section{Checking a Memory Model}
+The AddressSanitizer \cite{180957} (ASAN) is a dynamic memory model checker, which means that memory bugs can only be reported when the program is executed. As ASAN needs to modify the internal behaviour of the system under test (SUT), it instruments the SUT at compile time to insert behaviour whenever the SUT accesses memory. This allows it to monitor all memory interactions of the program and check if the memory model is violated.
 
-%\begin{tikzpicture}[>=stealth]
-%\draw[draw=none, use as bounding box] (-4,0.5) rectangle (4,-6);
-%\node[draw,rounded corners=3pt,fill=blue!20] (conc) {\texttt{int x = concrete\_int();}}; \uncover<2->{\node[right=0.3cm of conc] {$\left\lbrace\;\right\rbrace$};}
-%\uncover<3->{\node[draw,rounded corners=3pt,fill=blue!20,below=0.5cm of conc.south] (sym) {\texttt{int y = symbolic\_int();}};} \uncover<4->{\node[right=0.3cm of sym] {$\left\lbrace\;\right\rbrace$};}
-%\uncover<5->{\node[draw,rounded corners=3pt,fill=blue!20,below=0.5cm of sym.south] (if1) {\texttt{if(x > 0)}};} %\uncover<6->{\node[right=0.3cm of if1] {$\left\lbrace\;\right\rbrace$};}
-%\uncover<7->{\node[draw,rounded corners=3pt,fill=blue!20,below=0.5cm of if1.south] (then1) {\texttt{ok1();}};} %\uncover<8->{\node[right=0.3cm of then1] {$\left\lbrace\;\right\rbrace$};}
-%\uncover<9->{\node[draw,rounded corners=3pt,fill=blue!20,below=0.5cm of then1.south] (if2) {\texttt{if(y > 0)}};} % \uncover<10->{\node[right=0.3cm of if2] {$\left\lbrace\;\right\rbrace$};}
-%\uncover<11->{\node[draw,rounded corners=3pt,fill=blue!20,below left=0.7071cm of if2.south] (then2) {\texttt{ok2();}};} \uncover<12->{\node[left=0.3cm of then2] {$\left\lbrace y > 0\right\rbrace$};}
-%\uncover<13->{\node[draw,rounded corners=3pt,fill=blue!20,below right=0.7071cm of if2.south] (else2) {\texttt{bug2();}};} \uncover<14->{\node[right=0.3cm of else2] {$\left\lbrace y \leq 0\right\rbrace$};}
+The memory model used by ASAN is similar to the one described above. This model does not store memory object metadata inside of the memory objects themselves. In fact, given only a set of bytes there is no way to determine if the bytes are allocated or unallocated, or what memory object they are allocated to. As a result, ASAN stores additional metadata about every allocated byte so that it can verify if the memory model has been violated.
 
-%\uncover<3->{\draw[->,very thick] (conc) -- (sym);}
-%\uncover<5->{\draw[->,very thick] (sym) -- (if1);}
-%\uncover<7->{\draw[->,very thick] (if1) -- (then1);}
-%\uncover<9->{\draw[->,very thick] (then1) -- (if2);}
-%\uncover<11->{\draw[->,very thick] (if2) -- (then2);}
-%\uncover<13->{\draw[->,very thick] (if2) -- (else2);}
-%\end{tikzpicture}
-\tikzstyle{process} = [rectangle, minimum width=1cm, minimum height=0.5cm, text centered, draw=black, fill=orange!30]
-\tikzstyle{arrow} = [thick,->]
-\begin{figure}
-    \centering
-    \begin{tikzpicture}[node distance=2cm]
-        \node (root) [process] {Branch Point};
-        \node (node1) [process, below of=root, xshift=-2cm] {Branch Taken};
-        \node (node2) [process, below of=root, xshift=2cm] {Branch Not Taken};
-        \draw [arrow] (root) -- (node1);
-        \draw [arrow] (root) -- (node2);
-    \end{tikzpicture}
-    \caption{Program Paths}
-    \label{fig:enter-label}
-\end{figure}
+To check a memory model we need to monitor the memory allocations, deallocations, and memory accesses. When memory is allocated we need verify that all the bytes to be allocated are currently unallocated. As the memory model does not allow the user to request the addresses at which bytes are allocated this issue is generally avoided. On an allocation, ASAN will update its metadata to mark the bytes as allocated.
 
-\section{Program Testing}
-The standard approach to finding errors in a piece of software is to write test programs which execute part or all of the program under test with set input parameters, to examine the behaviour of the program and ensure that the execution performs as expected. Testing has many advantages, it is easy to set up and all modern programming languages will have extensive support for writing test cases. Furthermore, tests can be written as the program grows and develops to create a full suite of tests that fully describes the intended behaviour of the program. However, testing has a key problem, where as the program grows the number of possible execution paths through program can grow exponentially. As a single test only follows one path through the program, you would need to manually write an exponential number of test cases to cover the full behaviour of the program. As a result, test suites for real software will not cover every possible path, potentially allowing bugs to remain in the program.
+When memory is deallocated we need to check that all the bytes belong to the same object. ASAN accomplishes this by checking its metadata to see if all the bytes are allocated and ensuring that the memory objects are spaced apart with redzones to check if the deallocation spans between memory objects.
 
-At the opposite end of the spectrum of possible bug finding techniques is program verification. In this paradigm, the programmer produces a proof for the behaviour of the program, showing that the code written will ensure that the output satisfies particular properties which are required for the desired behaviour. One way to do this is to write a specification for the behaviour of each function in terms of its input parameters and then go on to show that output of the function must satisfy a given property. Verification is the most reliable way (and possibly the only way) of ensuring program correctness, that is to say that no logical errors can remain in the software, as long as the proof is valid. Unfortunately, program verification cannot be done automatically for all programs, which means for real software to be verified requires a long and expensive period of manually proving the correctness of every part of the program.
+When memory is accessed we need to check that all the bytes belong to the same object. ASAN accomplishes this in the same way as with deallocations. All we need to check the memory model is to store metadata for each object and then check any memory accesses against the stored metadata.
 
-Verification is further undermined by reliance on external libraries. If any code used by the verified software has not itself been verified, we lose our claims of correctness and unfortunately most popular libraries have not been verified. This leaves the programmer in a difficult position where they must either re-implement all desired functionality from the insecure library or to accept the risk and use the library. As all real software will utilise some external code, this means the ability of verification to ensure correctness is limited. Furthermore, verifying that no memory bugs are present would require a full specification of the memory model you are verifying against. As the C memory model does not have an official logical specification this would mean even a verified program would not be guaranteed to have no memory bugs per the C standard.
+\section{Finding New Inputs}
+Although ASAN is a powerful tool for reporting memory model violations, it only works if the program input provided triggers a memory bug to occur. The number of possible inputs grows exponentially with the size of the input data, so the difficulty of finding inputs that trigger bugs also grows exponentially.
 
-The effectiveness of manual testing is often evaluated through the use of line coverage, a metric which determines which lines of a program are visited during the execution of a test suite. Line coverage is simple to implement, but it is not a perfect approximation for code coverage. Code coverage is the proportion of program behaviours which are exercised by the test suite. The goal of testing is to demonstrate that all possible program behaviours are valid, so it is necessary to optimise code coverage to show that we have seen all program behaviours. Program behaviour meaningfully differs when the code branches, resulting in different execution paths through a program. The execution paths through a program can be represented as a tree, where each branch is a node. If we can fully explore the tree, we guarantee that we will find all bugs in the program, as we have observed all possible program behaviours. However, it is difficult to determine what inputs will cause the program to take a particular path through a program. Furthermore, we may not know all possible paths statically so we would need to discover new program paths through dynamic execution.
+A single program execution can be described by which direction is taken at each branch encountered. This is called a path in the program. When testing we would like to cover all paths in the program, however, the number of paths grows exponentially with the number of branches. This means covering every path is often infeasible.
 
-Applying manual testing to find memory bugs can be effective, however, it is difficult to have high confidence that memory bugs are not present. The program will make a large number of memory accesses and it would be infeasible to write test cases that cover every edge case that could occur for every memory access. Even if one were able to write all these tests, they would be directly tied to the implementation of the program and any future modifications would require changing all these tests. That would result in a huge workload and so it is unreasonable to expect programmers to write exhaustive test suites especially when simple memory accesses like reading and writing to variables are unlikely to trigger undefined behaviour in practice.
+The majority of program testing is done using manually written tests \cite{8400261}. We can write test programs which execute part or all of the SUT with set input parameters, to examine the behaviour of the program and ensure that the execution performs as expected. Testing has many advantages, it is easy to set up and all modern programming languages will have extensive support for writing test cases. Furthermore, tests can be written as the program grows and develops to create a suite of tests that describes the intended behaviour of the program. However, testing has a key problem, where as the program grows the number of possible execution paths through program can grow exponentially. As a single test only follows one path through the program, you would need to manually write an exponential number of test cases to cover the full behaviour of the program. As a result, test suites for real software will not cover every possible path, potentially allowing bugs to remain in the program.
 
-\section{Symbolic Execution}
-Symbolic execution is a software testing technique which positions itself between manual testing and verification as an automatic technique that can cover all possible inputs to a program. Symbolic execution was invented in the 1970's \cite{10.1145/800027.808444, 10.1145/360248.360252, 1702443, 10.1145/800027.808445} as a way to better test programs. Instead of using concrete values as input to our program, we provide symbolic values. A symbolic value is a symbol that can represent many possible concrete values. We define the programming languages operations on the symbolic values naturally from their concrete definitions. For example, if $\lambda$ is a symbolic value with possible values $1,2,3$, the expression $\lambda + 1$ will have possible values $2,3,4$. In this way all the operations of a programming language can be extended to act on symbolic values.
+Randomised testing was developed to build upon manual testing by automatically generating test cases. Also called Fuzzing \cite{10.1145/96267.96279}, testing programs with random inputs has been able to find many bugs in long running software projects like GCC \cite{csmith, aflwhitepaper}. The effectiveness of random testing comes from the ability to search a greater number of paths compared to manual testing and a random test can avoid the biases that the test author may hold and search the whole input space fairly. However, in a large program some paths will only be reached from a small section of the input space and randomised testing finds paths in proportion to how many inputs take the path. This means that random testing is unlikely to find bugs on low probability paths.
 
-Once we have defined the behaviour of operations on symbolic values, we can interpret the execution of the software. As we traverse the code we can maintain a record of the concrete and symbolic values stored in each variable and once we reach the end of the program we will have computed all possible outputs. This demonstrates one of the key advantages of symbolic execution over manual testing, we can finish symbolic execution whereas manual testing must be done continuously to ensure good coverage is maintained. 
+An alternative to random testing is concolic execution, which uses a guided search to find new inputs.
+Concolic execution has a higher overhead compared to random testing so the proportion of the input space searched will be lower but this trade off is made in favour of finding inputs that should take new program paths. This means that concolic execution should explore a new path with every input tried, although implementation details means this may not always occur in practice.
 
-The difficulty of symbolic execution appears when we consider conditional branches. At a branch we have two possible execution paths, each of which will result in a different execution path. The executor will use logical reasoning to determine if each branch is possible. If it is, we can fork the execution at the conditional branch, so we cover both possible paths \cite{10.1145/360248.360252, cadar2008klee}. This is conceptually simple, but it runs into a similar limitation to manual testing as we have an exponential blow-up in possible paths.
-
-
-%Need an UNSAT path, could use 
+\section{Concolic Execution}
 \begin{figure}
     \centering
     \begin{minipage}{0.3\textwidth}
     %if(x < 0) {x = 0;}; if (x > 5) {abort;}
-    \begin{lstlisting}[language=C]
-int clamp(int x) {
-    if (x < 0) {
-        x = 0;
+\begin{lstlisting}[language=C]
+int clamp(int* arr, int i) {
+    if (arr[i] < 0) {
+        return 0;
     }
-    if (x > 5) {
+    if (arr[i] > 5) {
         abort();
     }
-    return x;
+    if (arr[i] > 10) {
+        return 10;
+    }
+    return arr[i];
 }
 \end{lstlisting}
     \end{minipage}
-    \begin{minipage}{0.6\textwidth}
-    %don't do x = value, just do x = lambda everywhere
-    \begin{tikzpicture}[node distance=1.5cm]
-        \node (root) [process] {\tiny $\{x = \lambda\}, \{\})$};
-        \node (node1) [process, below of=root, xshift=-1.8cm] {\tiny $\{x = \lambda\}, \{\lambda < 0\}$};
-        \node (node2) [process, below of=node1, xshift=-1.8cm] {\tiny $\{x = 0\}, \{\lambda < 0\}$};
-        \node (node3) [process, below of=node2, xshift=-1.8cm] {\tiny $\{x = 0\}, \{\lambda < 0, \lambda > 5\}$};
-        \node (node4) [process, below of=node2, xshift=1.8cm] {\tiny $\{x = 0\}, \{\lambda < 0, \neg(\lambda > 5)\}$};
-        \node (node5) [process, below of=root, xshift=1.8cm] {\tiny $\{x = \lambda\}, \{\neg(\lambda < 0)\}$};
-        \node (node6) [process, below of=node5, xshift=-1.8cm] {\tiny $\{x = \lambda\}, \{\neg(\lambda < 0), \lambda > 5\}$};
-        \node (node7) [process, below of=node5, xshift=1.8cm] {\tiny $\{x = \lambda\}, \{\neg(\lambda < 0), \neg(\lambda > 5)\}$};
-        \draw [arrow] (root) -- (node1);
-        \draw [arrow] (root) -- (node5);
-        \draw [arrow] (node1) -- (node2);
-        \draw [arrow] (node2) -- (node3);
-        \draw [arrow] (node2) -- (node4);
-        \draw [arrow] (node5) -- (node6);
-        \draw [arrow] (node5) -- (node7);
-    \end{tikzpicture}
-    \end{minipage}
-    \caption{Execution paths in clamp function}
-    \label{fig:foopaths}
+    \caption{This program accesses element $i$ of array $arr$ and clamps the value between 0 and 10. However, if the value is greater than 5 then the program will crash.}
+    \label{clamp}
 \end{figure}
 
-Figure \ref{fig:foopaths} shows the execution paths in a simple function. To explore this function as a symbolic executor would initially assign a symbolic value to x. When it reaches the condition $x < 0$ the executor will use an SMT solver to determine if there is an assignment to x that satisfies each side of the condition. So it will find that for any negative value the program will take the leftmost path.
+\tikzstyle{process} = [rectangle, minimum width=1cm, minimum height=0.5cm, text centered, draw=black, fill=orange!30]
+\tikzstyle{arrow} = [thick,->]
+\begin{figure}
+    \centering
+    \begin{minipage}{0.9\textwidth}
+    %don't do x = value, just do x = lambda everywhere
+    \begin{tikzpicture}[node distance=1.5cm]
+        \node (root) [process] {$arr[i] < 0$};
+        \node (node1) [process, below of=root, xshift=1.8cm] {SAT};
+        \node (node2) [process, below of=root, xshift=-1.8cm] {$arr[i] > 5$};
+        \node (node3) [process, below of=node2, xshift=-1.8cm] {$arr[i] > 10$};
+        \node (node4) [process, below of=node3, xshift=1.8cm] {UNSAT};
+        \node (node5) [process, below of=node3, xshift=-1.8cm] {SAT};
+        \draw [arrow] (root) -- node[right=10pt] {$\{\lambda < 0\}$} (node1);
+        \draw [arrow] (root) -- node[left=10pt] {$\{\neg(\lambda < 0)\}$} (node2);
+        \draw [arrow] (node2) -- node[left=10pt] {$\{\neg(\lambda < 0), \neg(\lambda > 5)\}$} (node3);
+        \draw [arrow] (node3) -- node[right=10pt] {$\{\neg(\lambda < 0), \neg(\lambda > 5), \lambda > 10\}$} (node4);
+        \draw [arrow] (node3) -- node[left=10pt] {$\{\neg(\lambda < 0), \neg(\lambda > 5),\neg(\lambda > 10)\}$} (node5);
+    \end{tikzpicture}
+    \end{minipage}
+    \caption{Execution paths in clamp function after 2 executions, with $arr[i] = \lambda$}
+    \label{fig:clamp2}
+\end{figure}
 
-Then it will reach the $x > 5$ branch. As we took the $x < 0$ path, we should find that there is no input that follows the $x > 5$ and $x < 0$ paths. As a real program is much more complicated, we need to use an SMT solver to determine if a set of constraints is unsatisfiable. As there is no possible input for this path, the executor does not need to consider it any further.
+Suppose that you are interested in testing to see if the program in Figure \ref{clamp} can crash and through random testing you have tried the input $arr = (-5), \, i = 0$ and found that the program did not crash and returned 0. If you were only doing random testing then the next step would be to pick completely random values of $arr$ and $i$ and hope that you could get a different result. Concolic execution gives us a method to take the results of previous executions to select more interesting inputs to try.
 
-If the value of $\lambda$ is positive it will take the right path. Then it will determine if $\lambda$ could be greater than 5, if so it will take the left path and abort. This shows that there is a bug in the program. If the symbolic solver can ever find a path that leads to a crash and produce an input that leads to that path being taken, it has demonstrated a bug in the program.
+We assign a symbolic expression to represent the value of the inputs of the program. For example, let $arr[i] = \lambda$, where $\lambda$ could take any integer value. Then we run the program with a concrete input, such as $arr[i] = -5$. Whenever a variable is assigned we additionally compute a symbolic expression to represent its new value and when the execution branches we record the conditions required to take the branch as a constraint on the symbolic values.
 
-Finally, the SMT solver should find for any value between 0 and 5 the program executes successfully. As this is uninteresting for a bug finding program, the executor should then focus on other paths that may lead to a crash.
+When we reach the branch $arr[i] < 0$, we can evaluate the condition concretely to determine if the branch will be taken. As $-5 < 0$ is true, the branch will be taken. Additionally, we record the constraint $\lambda < 0$. This means that in order to take this path through the program, the input must satisfy the expression $\lambda < 0$. We call the sequence of constraints recorded for a single path the path constraint.
 
+We can generate an input which takes a new path by taking the path constraint and negating the final constraint. Here we only have one constraint so the new path constraint is $\{\neg(\lambda < 0)\}$. We can use a Satisfiability Modulo Theories (SMT) solver to find an input satisfying the constraint. It could return any number greater than or equal to 0, lets take 3 for this example.
+
+After executing the program with the input $arr[i] = 3$, we get the path constraint $\{\neg(\lambda < 0), \neg(\lambda > 5), \neg(\lambda > 10)\}$. Negating the final constraint gives us $\{\neg(\lambda < 0), \neg(\lambda > 5), \lambda > 10\}$, but when we query the SMT solver it will give us the result UNSAT. This means there is no input which takes that path through the program. Figure \ref{fig:clamp2} shows the paths explored in an execution tree. To find the next input you would walk up the tree and query the SMT solver for $\{\neg(\lambda < 0), \lambda > 5\}$. Executing the new input should find the crash in the program.
+
+This process is called concolic execution and is a type of symbolic execution. Concolic is a portmanteau of Concrete and Symbolic, referring to how in concolic execution variables have concrete values and symbolic expressions. We have seen how concolic execution can be used to efficiently construct and explore the execution tree of a program. 
+
+Symbolic execution was developed in the 1970s \cite{10.1145/800027.808444, 10.1145/360248.360252, 1702443, 10.1145/800027.808445} as a way to test programs. 'Symbolic' means that the inputs given to the SUT do not have a single concrete value but instead each input can take a set of possible values. For example, let $x = \lambda$, where $\lambda$ is a symbolic value with possible values $1,2,3$. Then after executing $x = x + 1$, $x$ will equal the symbolic expression $\lambda + 1$ with the possible values $2,3,4$. In this way all the operations of a programming language can be extended to act on symbolic values.
 
 \subsection{Determining Branch Conditions}
 In order to determine if a branch can be taken, a Satisfiability Modulo Theory (SMT) solver \cite{Barrett2018} is used. These solvers extend Satisfiability (SAT) solvers to allow the use of background theories for greater expressibility. A SAT solver \cite{10.1007/978-3-540-24605-3_37} takes a logical formula and determines if there is an assignment to the boolean variables in the formula that will result in the formula being true. 
@@ -225,7 +208,7 @@ In symbolic execution constraints on the symbolic state of the program are produ
 
 As concolic execution only tests with concrete inputs, we get a guarantee that any memory bugs found are real and can be reproduced from the same input (assuming no non-determinism). This can simplify the design of the memory model implementation, as the implementation only needs to detect if a memory access has concretely violated the memory model. This is different in symbolic execution where the memory model implementation needs to answer the question of could the memory access have been invalid. However, the memory model must be able to produce constraints on the access which amounts to mostly the same thing, so this may not be a large advantage.
 
-
+\subsection{CCF}
 % prototype
 % missing some features e.g. memory model - not tweaking, need to build from scratch
 CCF is a new concolic executor that aims to improve on existing concolic executors by efficiently executing C programs concolically and providing support for external function calls. This should allow for a greater variety of C programs to be executed which could promote the use of concolic execution on real programs. As CCF is a prototype it has some features that are yet to be implemented. One example of this is a memory model, so this project we will implement a memory model from scratch.
@@ -358,7 +341,7 @@ We implement an array memory model into CCF and adapt CCF's internal representat
 % What notable desisions did i make in designing the array memory model
 % Need to mention giving each byte a unique id
 % Need to mention recording each object as id + size
-The array memory model represents memory objects as occupying a contiguous region of a byte array, where the start of the occupied region for an object $x$ is the offset $&x$ and the size of the occupied region is $sizeof(x)$. To implement such an array memory model directly would have an immediate issue, the size of the byte array would need to be equal to the total addressable memory. For a 64 bit architecture this could be up to $2^64$ bytes or 16 exibytes, which would require almost as much RAM as google chrome. 
+The array memory model represents memory objects as occupying a contiguous region of a byte array, where the start of the occupied region for an object $x$ is the offset $\&x$ and the size of the occupied region is $sizeof(x)$. To implement such an array memory model directly would have an immediate issue, the size of the byte array would need to be equal to the total addressable memory. For a 64 bit architecture this could be up to $2^64$ bytes or 16 exibytes, which would require almost as much RAM as google chrome. 
 
 CCF's memory framework uses a binary tree to reduce the space required by only storing information about allocated objects. Binary look-up trees allow us to look up addresses in $\mathcal{O}(\log{}n)$. For each memory object we store the size of the allocation, a flag representing if the memory is allocated, and a unique id. This greatly reduces the amount of space required to model memory.
 
@@ -427,7 +410,7 @@ A natural extension of the execution tree would be to allow each node in the tre
 
 One way to implement choice-out-of-k nodes is to represent all branches as switches. A switch statement is defined by a condition expression, a set of cases which each have a constant case value, and a default case which handles all other values. This can generalise binary decisions by using the binary condition expression as the switch condition expression and having one case with a case value of true and use the default case for when the condition expression evaluates to false. It can also generalise memory accesses using the address expression as the condition expression and each memory object is a separate case. This leaves the case where no memory object was accessed as the default case. The main advantage of this approach is reducing expression duplication. As we only store the condition expression once we limit the memory used and we can generate the full constraint to pass to the solver only when it is required as we store all the necessary information in the execution tree.
 
-When creating a choice-out-of-k node, we have to choose between transmitting all possible cases immediately or transmitting cases only when we reach that case in a concrete execution. Transmitting cases lazily has a clear advantage as it means we never transmit an unsatisfiable case, reducing the number of SMT queries we have to execute to find all possible cases. However, when we reach a default case we then need to transmit the negation of an overapproximation of the possible cases to ensure we still allow all possible cases to be found. This should minimise the number of queries but means that the default case requires us to duplicate the information of all other cases which could waste memory.
+When creating a choice-out-of-k node, we have to choose between transmitting all possible cases immediately or transmitting cases only when we reach that case in a concrete execution. Transmitting cases lazily has a clear advantage as it means we never transmit an unsatisfiable case, reducing the number of SMT queries we have to execute to find all possible cases. However, when we reach a default case we then need to transmit the negation of an over-approximation of the possible cases to ensure we still allow all possible cases to be found. This should minimise the number of queries but means that the default case requires us to duplicate the information of all other cases which could waste memory.
 
 To distinguish choices, we record a unique id per branch, memory access, and switch, the condition expression, and the case. We need to compare both the id and the condition expression as the expression not change for different cases, so we need to insert a non-determinism node if the expression is not equal even if the ids are equal.
 
