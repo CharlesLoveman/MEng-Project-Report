@@ -310,66 +310,149 @@ The AddressSanitizer \cite{180957} (ASAN) built into Clang and GCC adds instrume
 % This report is all about A C Memory Model for use with Concolic Testing
 % What does it mean for a memory model to be for use with concolic testing? How does concolic execution affect the design of our memory model
 
-CCF has a framework implemented to handle memory interactions. The C compiler is modified to insert a function call on each memory access, providing both the concrete data and symbolic expressions required to fully describe the memory access. The concrete information is handled by the framework to allocate, deallocate, read, and write memory. The framework provides a dummy memory model implementation which accepts all memory accesses as valid.
+To find memory bugs we need to define the memory model we are using, design a checker to detect memory bugs during execution, and then produce constraints to allow us to find new inputs.
 
-We will use an array model to define how memory can be accessed by the system under test. The implementation of this model should replace the dummy memory model and be able to validate and construct constraints on the memory accesses performed by the system under test.
+CCF has an existing framework implemented to handle memory interactions. The C compiler is modified to insert a function call on each memory access, providing both the concrete data and symbolic expressions required to fully describe the memory access. The concrete information is handled by the framework to allocate, deallocate, read, and write memory. The framework provides a dummy memory model implementation which accepts all memory accesses as valid.
 
-\section{Array Memory Model}
-The main memory operations the memory model must support are allocations, deallocations, reads, and writes.
+We will implement a memory model to define how memory can be accessed by the system under test. The implementation of this model should replace the dummy memory model and be able to validate and construct constraints on the memory accesses performed by the system under test.
+
+\section{Memory Model}
+The memory model defines how a program may interact with memory. The main memory operations the memory model must support are allocations, deallocations, reads, and writes. Together these describe all the ways that the program can affect memory. We can treat reads and writes in the same way so we call this an access.
+
+\begin{align*}
+MemoryOp &\dblcolon ([MemoryState], Range) \rightarrow [MemoryState] \\
+MemoryOp &\Coloneqq Allocate \, | \, Deallocate \, | \, Access \\
+\end{align*}
+Memory is composed of a set of bytes. We are only concerned with how the program interacts with memory, which means we can abstract away most of the architectural features of modern memory hardware. We can treat all bytes of memory the same, regardless of whether memory is segmented or how virtual memory is implemented. This makes the memory model applicable across different architectures. We require that all accesses lie within the address space. As we are using x86\_64, memory allocations will be contiguous which simplifies how we can express memory operations.
 
 We treat memory as having two states: allocated and unallocated. It would be reasonable to include additional states to model which bytes are initialised. However, reading uninitialised data is not undefined behaviour in C even though it can cause unintended behaviour if you believe the data is initialised. As it is difficult to determine programmatically when reading uninitialised data is intentional, we are not modelling this. This also gives a performance advantage as you would need to model initialisation per byte instead of per object, greatly increasing the memory required.
 
-An allocation creates a new memory object. This is represented in an array model as reserving a range of addresses for the object. For an allocation at position $pos$ with size $n$ we need to set $[pos, pos + n)$ to be allocated. As we don't need to store per byte information, we can equivalently create an object representing this allocation that stores the position, size, and state of the memory object. To validate an allocation, we need to ensure that the range $[pos, pos + n)$ is currently unallocated as we do not allow memory objects to overlap.
+$$MemoryState \Coloneqq Unalloc \, | \, Alloc(id)$$
 
-A deallocation removes a memory object from the array, freeing the range of addresses reserved for the object. This operation is the inverse of an allocation, and sets a range $[pos, pos + n)$ to be deallocated. To validate a deallocation we ensure that the range $[pos, pos + n)$ is allocated. Unlike memory allocations, C programs are able to specify the address to be deallocated, introducing more possible errors. The address to be deallocated must be an address previously returned by a memory management function and the region must not have been deallocated by a previous call to free or realloc. In an array memory model, we do not directly track which addresses have been returned by memory management functions. As the memory management functions return pointers to the start of objects, we can impose this requirement by ensuring the address to be deallocated is the start of a memory object.
+An allocation creates a new memory object. This is represented as reserving a range of addresses for the object. For an allocation at position $pos$ with size $n$ we need to set $[pos, pos + n)$ to be allocated. As we don't need to store per byte information, we can equivalently create an object representing this allocation that stores the position, size, and state of the memory object. To validate an allocation, we need to ensure that the range $[pos, pos + n)$ is currently unallocated as we do not allow memory objects to overlap.
 
-Reads and writes are treated equivalently in our array memory model. We do not record information regarding which bytes have been written or read so the array does not need to be updated to track these modifications. We require that the region accessed is entirely contained within a single allocation. C objects also have alignment information which defines which addresses they can be read from or written to. We do not represent alignment and cannot catch memory bugs caused by incorrect alignment.
+$$\frac{\forall i \in r. \, \alpha_i = Unalloc}{Allocate(\alpha, r) \rightarrow \alpha[r \rightarrow Alloc(nextId\mathrel{{+}{+}})]}$$
+A deallocation removes a memory object from the array, freeing the range of addresses reserved for the object. This operation is the inverse of an allocation, and sets a range $[pos, pos + n)$ to be deallocated. To validate a deallocation we ensure that the range $[pos, pos + n)$ is allocated. Unlike memory allocations, C programs are able to specify the address to be deallocated, introducing more possible errors. The address to be deallocated must be an address previously returned by a memory management function and the region must not have been deallocated by a previous call to free or realloc. In an memory model, we do not directly track which addresses have been returned by memory management functions. As the memory management functions return pointers to the start of objects, we can impose this requirement by ensuring the address to be deallocated is the start of a memory object.
+
+%$$\frac{\exists id. (\forall i \in r. \, \alpha_i = Alloc(id)) \wedge \neg \exists k. (\forall i \in r. \, k < i) \wedge \alpha_k = Alloc(id)}{Deallocate(\alpha, r) \rightarrow \alpha[r \rightarrow Unalloc]}$$
+
+$$\frac{\exists id. \forall i \in r. \, \alpha_i = Alloc(id)}{Deallocate(\alpha, r) \rightarrow \alpha[r \rightarrow Unalloc]}$$
+
+Reads and writes are treated equivalently in our memory model. We do not record information regarding which bytes have been written or read so the array does not need to be updated to track these modifications. We require that the region accessed is entirely contained within a single allocation. 
+
+$$\frac{\exists id. \forall i \in r. \, \alpha_i = alloc(id)}{Access(\alpha, r) \rightarrow \alpha}$$
+
+C-objects also have alignment information which defines which addresses they can be read from or written to. We do not represent alignment and cannot catch memory bugs caused by incorrect alignment.
 
 \subsection{Constraints}
-As well as validating memory accesses the memory model should produce constraints on the input to facilitate further program exploration.
+Once a memory access has been validated by the memory model during execution, we should produce a constraint on the symbolic input to describe the program path. This will allow the SMT solver to produce new inputs that access other memory objects, if such inputs exist.
 
 The sequence of constraints produced during a program execution should uniquely identify one path through the program. We can consider each memory access to be a branch and the set of branch targets is equal to the set of memory objects that the memory access could hit plus an option to have accessed memory not contained within any memory object if this may have occurred.
 
 When a memory access occurs under concolic execution and the access hits an object, we need a way to identify that object to discriminate against accesses to different objects. We cannot use the address of the object, as this is non-deterministic. Instead, we allocate a unique id value to each object based on the allocation order. Assuming no non-determinism has occurred, whenever the program follows the same execution path the same number of objects will be allocated. This guarantees that objects with the same id across executions are in some sense the same object, even if they exist at different addresses.
 
-When a memory access hits a memory object, we produce a constraint that ensures the access is entirely contained within that memory object. If no object is accessed, we have found a memory bug. However, we still need to produce a constraint to guide the program exploration to find other possible bugs in the program. As we have hit a case where no object is accessed, the constraint can be described as the negation of an access to any object. If we represent an access to a memory object with id: $id$ as $access(id)$, this means not hitting an object takes the form $\neg\bigvee(access(id))$.
+$$\frac{m \leq \lambda \leq \lambda + k \leq n \wedge \{m \dots n\} = \{ i \, | \, \alpha_i = Alloc(id)\}}{generate\_constraint\,  Access(\alpha, \lambda \dots \lambda + k) \, id \, m \, n \rightarrow \{m \leq \lambda \wedge \lambda + k \leq n\}}$$
 
-\section{Choices}
-A key difference between symbolic and concolic execution occurs when the program reaches a symbolic branch with multiple targets. In symbolic execution the we query the SMT solver for which branch targets are possible and fork over all possible targets. In concolic execution we maintain a separation between program execution and exploration and we don't want to pause execution to query an SMT solver as this would slow down execution and break this separation. As a result, when we reach a branch we do not know all the possible targets.
+When a memory access hits a memory object, we produce a constraint that ensures the access is entirely contained within that memory object. If no object is accessed, we have found a memory bug. However, we still need to produce a constraint to guide the program exploration to find other possible bugs in the program. As we have hit a case where no object is accessed, the constraint can be described as the negation of an access to any object. If we represent an access to a memory object with id: $id$ as $hit(id)$, this means not hitting an object takes the form $\neg\bigvee(hit(id))$.
+
+\section{Handling Branches With Many Targets}
+A key difference between symbolic and concolic execution occurs when the program reaches a symbolic branch with multiple targets. In symbolic execution we query the SMT solver for which branch targets are possible and fork over all possible targets. In concolic execution we maintain a separation between program execution and exploration and we don't want to pause execution to query an SMT solver as this would slow down execution and break this separation. As a result, when we reach a branch we do not know all the possible targets.
 
 CCF handles this by recording the constraint required to take the specific branch followed by the concrete execution at each branch point. Once a program finishes execution (successfully or via a crash) the sequence of constraints generated (called the path constraint of the execution) is added to the execution tree managed by CCF. CCF does not make the execution tree available to the process under test to enforce separation, but this means during execution we do not know which branches have already been explored.
 
-The majority of branches in a program are binary branches and a non-binary branch can be converted to a series of binary choices by branching on each possible case in order. CCF takes advantage of this to represent all branches as binary branches which makes the execution tree a binary tree. This means during exploration we always know all possible cases as we either take a branch or we don't. However, when we introduce a memory model and start to branch over all possible targets of each memory access, the average number of branch targets will increase and the previously uncommon case of large switch statements with many targets becomes a common scenario that is important to encode efficiently.
+\begin{figure}
+    \centering
+    \begin{tikzpicture}
+        \node (root1) [rectangle] at (-3, 0) {cond};
+        \node (leaf1) [rectangle, below of=root1, xshift=-1cm] {1};
+        \node (leaf2) [rectangle, below of=root1] {2};
+        \node (leaf3) [rectangle, below of=root1, xshift=1cm] {3};
+
+        \node (root2) [rectangle] at (3, 0) {cond = 1};
+        \node (leaf4) [rectangle, below of=root2, xshift=1cm] {1};
+        \node (node1) [rectangle, below of=root2, xshift=-1cm] {cond = 2};
+        \node (leaf5) [rectangle, below of=node1, xshift=1cm] {2};
+        \node (leaf6) [rectangle, below of=node1, xshift=-1cm] {3};
+
+        \draw [arrow] (root1) -- (leaf1);
+        \draw [arrow] (root1) -- (leaf2);
+        \draw [arrow] (root1) -- (leaf3);
+        \draw [arrow] (root2) -- (leaf4);
+        \draw [arrow] (root2) -- (node1);
+        \draw [arrow] (node1) -- (leaf5);
+        \draw [arrow] (node1) -- (leaf6);
+    \end{tikzpicture}
+    \caption{A branch with $k$ targets can be converted to $k - 1$ binary branches.}
+    \label{fig:binarising}
+\end{figure}
+The majority of branches in a program are binary branches and a non-binary branch can be converted to a series of binary choices by branching on each possible case in order. Figure \ref{fig:binarising} shows how CCF performs this binarisation to convert a branch with $k$ targets to $k$ binary branches. CCF takes advantage of this to represent all branches as binary branches which makes the execution tree a binary tree. This means during exploration we always know all possible cases as we either take a branch or we don't. However, when we introduce a memory model and start to branch over all possible targets of each memory access, the average number of branch targets will increase and the previously uncommon case of large switch statements with many targets becomes a common scenario that is important to encode efficiently.
 
 We modify the execution tree to treat all branches as having k possible targets. This simplifies the model of the execution tree as it means one node in execution tree represents one symbolic branch in the program. This should help to make it easier to reason about the exploration behaviour of CCF.
 
 An alternative approach we considered was replacing the linear search with a binary search. CCF searches for the correct case from the start in a linear search which adds on average $\frac{n}{2}$ nodes. As both memory addresses and switch condition variables are well-ordered, we could use a binary search to find the correct case which would improve the time taken to $\log(n)$. However, implementing choice-out-of-k nodes would allow us to represent a choice with only 1 node, minimising the size of the execution tree.
 
 
-
-
-
-
 \chapter{Implementation}
-We implement an array memory model into CCF and adapt CCF's internal representation of the execution tree to better represent memory accesses.
+We implement a memory model into CCF and adapt CCF's internal representation of the execution tree to better represent memory accesses.
 
+CCF has an existing framework that updates a store of metadata regarding the symbolic state associated with the program execution. This framework supports memory accesses by providing a memory model interface. To implement a memory model for CCF we need to implement a memory model checker and then extend the behaviour to generate constraints.
 
-\section{Array Memory Model}
+\section{Checking the Memory Model}
 % What notable desisions did i make in designing the array memory model
 % Need to mention giving each byte a unique id
 % Need to mention recording each object as id + size
-The array memory model represents memory objects as occupying a contiguous region of a byte array, where the start of the occupied region for an object $x$ is the offset $\&x$ and the size of the occupied region is $sizeof(x)$. To implement such an array memory model directly would have an immediate issue, the size of the byte array would need to be equal to the total addressable memory. For a 64 bit architecture this could be up to $2^64$ bytes or 16 exibytes, which would require almost as much RAM as google chrome. 
+The memory model represents memory objects as occupying a contiguous region of a byte array, where the start of the occupied region for an object $x$ is the offset $\&x$ and the size of the occupied region is $sizeof(x)$. To implement such an array directly would have an immediate issue, the size of the byte array would need to be equal to the total addressable memory. For a 64 bit architecture this could be up to $2^64$ bytes or 16 exibytes, which would require almost as much RAM as google chrome.
 
-CCF's memory framework uses a binary tree to reduce the space required by only storing information about allocated objects. Binary look-up trees allow us to look up addresses in $\mathcal{O}(\log{}n)$. For each memory object we store the size of the allocation, a flag representing if the memory is allocated, and a unique id. This greatly reduces the amount of space required to model memory.
+CCF's memory framework uses a binary tree to reduce the space required by only storing information about allocated objects. Binary look-up trees allow us to look up addresses in $\mathcal{O}(\log{}n)$. For each memory object we store the size of the allocation and a unique id and an access to any other region of memory will access an Unallocated element. This greatly reduces the amount of space required to model memory.
+
+$$MemoryObject \Coloneqq Unallocated \, | \, Allocated(id, size)$$
+
+\begin{equation}\label{alloc-rule}
+\frac{\forall i \in r. \, \alpha_i = Unalloc}{Allocate(\alpha, r) \rightarrow \alpha[r \rightarrow Alloc(nextId\mathrel{{+}{+}})]}
+\end{equation}
+
+To implement allocations according to \eqref{alloc-rule}, we need to ensure that the entire range we allocate is unallocated. We can do this directly by iterating over memory objects in the binary tree that intersect the range and checking that they are all Unallocated. We ensure that we allocate a unique id to each memory allocation by using an atomic counter. Although CCF does not currently support multi-threaded programs, we ensure that the code is thread-safe so that CCF can be easily extended in the future.
+
+\begin{equation}\label{dealloc-rule}
+\frac{\exists id. \forall i \in r. \, \alpha_i = Alloc(id)}{Deallocate(\alpha, r) \rightarrow \alpha[r \rightarrow Unalloc]}
+\end{equation}
+
+\eqref{dealloc-rule} describes how we model deallocations. To validate a deallocation we check that the range to be deallocated exactly coincides with an allocated memory object in the binary tree.
+
+\begin{equation}\label{access-rule}
+    \frac{\exists id. \forall i \in r. \, \alpha_i = alloc(id)}{Access(\alpha, r) \rightarrow \alpha}
+\end{equation}
+
+Reads and writes are described by \eqref{access-rule}. We check that the range of the access is contained entirely by a single allocated memory object. For all of these checks we are working with the concrete range that is being accessed, not the symbolic expressions associated. This is because during the execution of a program we only want to report an error that actually happens. This guarantees that all errors reported are real, avoiding false positives.
+
+\subsection{Finding new inputs}
+To find new inputs we need to generate constraints from the symbolic state we store in the concolic runtime. CCF updates the symbolic state for each operation that occurs in the system under test (SUT). This includes constructing the symbolic expressions that represent the symbolic addresses used for memory accesses. We implement constraints using these symbolic expressions.
+
+The simplest constraint we could generate for an access to address $sym\_ptr$ with size $sym\_size$ which hit a memory object starting at $obj\_pos$ with size $obj\_size$ would be $obj\_pos \leq sym\_ptr \wedge sym\_ptr + sym\_size\leq obj\_pos + obj\_size$. This works well for a basic implementation of the memory model.
+
+CCF has a framework for building constraints based on LLVM IR. This means that the we can easily create symbolic expressions that match the LLVM instructions that have occurred. To represent the previous expression using CCF's framework we have:
+\begin{alignat*}{2}
+Binary(And, None, &Binary(ICmp, \textit{ICMP\_ULE}, &&obj\_pos, sym\_ptr),\\
+&Binary(ICmp, \textit{ICMP\_ULE}, &&Binary(Add, None, sym\_ptr, sym\_size), \\
+& &&Binary(Add, None, obj\_pos, obj\_size)))
+\end{alignat*}
+
+A better way to represent memory accesses would be using the SMT theory of arrays. As CCF is a prototype, CCF's constraint framework does not support the theory of arrays yet. If you had the theory of arrays you could a memory access as a single array access, instead of a series of bitvector operations. 
+
+CCF matches execution traces to the execution tree by walking down the tree from the root and checking that each constraint encountered in the execution tree matches a valid option at that point in the execution tree. It matches the constraints by directly comparing them and checking if the constraint equals the constraint or its negation. Unfortunately, memory allocation addresses are inherently non-deterministic. This means that checking against the constraints described above would never result in a match as the $obj\_pos$ is non-deterministic.
+
+To overcome this, we changed the execution tree to match constraints using a unique id for each code location in the LLVM IR. As LLVM IR does not store code location information by default, we modified CCF's instrumentation to generate a 64 bit id for each code location using a pseudo-random number generator seeded with the path to the source code file. This guarantees that the id generated for a specific code location will always be the same between runs. Once we have a unique id for a code location, we can match branches on non-deterministic data like memory addresses by checking that the code locations match. This comparison is also more efficient than comparing expressions directly, as it takes constant time to compare the equality of two 64 bit values.
 
 \subsection{Sub-Objects}
-C-objects can constructed recursively, allowing us to create complex data structures such as structs that contain structs. Although this gives us a lot of freedom to change how data is arranged, it is difficult to represent in the array memory model. This is because memory objects do not have internal structure and cannot be defined recursively, they only have a position and a size.
+C-objects can constructed recursively, allowing us to create complex data structures such as structs that contain structs. Although this gives us a lot of freedom to change how data is arranged, it is difficult to represent in the memory model. This is because memory objects do not have internal structure and cannot be defined recursively, they only have a position and a size.
 
-As some memory bugs depend on accessing specific sub-objects, it would be impossible for the array memory model to find these bugs. To illustrate the problem, consider a double indirection by way of an array of pointers as in \ref{DoubleIndirection}. Under concolic execution, a naive implementation of the array memory model would produce a constraint with two cases, either the memory access $arr[inp[0]]$ is within the memory object pointed to by $arr$, or it is not. If we got unlucky and failed to try the input $0x2$ immediately, the case where the memory access was within the memory object would be considered satisfied and we would not try to access other sub-objects of $arr$. As a result, we would not detect the null-pointer dereference.
+As some memory bugs depend on accessing specific sub-objects, it would be impossible for the memory model to find these bugs. To illustrate the problem, consider a double indirection by way of an array of pointers as in \ref{DoubleIndirection}. Under concolic execution, a direct implementation of the memory model would produce a constraint with two cases, either the memory access $arr[inp[0]]$ is within the memory object pointed to by $arr$, or it is not. If we got unlucky and failed to try the input $0x2$ immediately, the case where the memory access was within the memory object would be considered satisfied and we would not try to access other sub-objects of $arr$. As a result, we would not detect the null-pointer dereference.
 
 The best way to handle this would be to model the contents of the memory object using the theory of arrays. This would allow us to construct a symbolic value representing an access to any portion of the memory object. Unfortunately, CCF does not currently support this SMT theory.
 
 To work around not having access to the theory of arrays, we allocated ids $[id \dots id + size)$ to each memory object, allowing us to treat an access starting with each byte of an object as a separate case. This has the immediate downside of exhaustively searching each accessible byte of each memory object, even if this has no further effect on the execution. This results in $\mathcal{O}(n)$ SMT queries per object instead of $\mathcal{O}(1)$, but as this allows us to detect many memory model violations that would not otherwise be found, this is an acceptable trade-off.
+
+To allow for accessing sub-objects, we introduce a per byte object id $obj\_id = obj\_pos + offset$, and create the constraint $sym\_ptr = obj\_id \wedge sym\_ptr + sym\_size\leq obj\_pos + obj\_size$. This means that we exhaustively search for all possible byte accesses allowing us to find more bugs. If CCF supported the SMT theory of arrays we would be able to do this much more efficiently, but this trade off still allows us to find bugs in programs that we would not be able to if we only considered accesses to whole memory objects.
 
 \begin{figure}
     \centering
@@ -394,21 +477,13 @@ int main(void) {
     return 0;
 }
 \end{lstlisting}
-    \caption{some code}
+    \caption{This program performs a double indirection by way of an array of pointers. Without considering sub-objects, we would not detect the error in the program.}
     \label{DoubleIndirection}
 \end{figure}
 
-\subsection{Constraint Generation}
-The simplest constraint we could generate for an access to address $sym_ptr$ with size $sym_size$ which hit a memory object starting at $obj_pos$ with size $obj_size$ would be $obj\_pos \leq sym\_ptr \wedge sym\_ptr + sym\_size\leq obj\_pos + obj\_size$. This works well for a basic implementation of the array memory model.
-
-To allow for accessing sub-objects, we introduce a per byte object id $obj\_id = obj\_pos + offset$, and create the constraint $sym\_ptr = obj\_id \wedge sym\_ptr + sym\_size\leq obj\_pos + obj\_size$. This means that we exhaustively search for all possible byte accesses allowing us to find more bugs. If CCF supported the SMT theory of arrays we would be able to do this much more efficiently, but this trade off still allows us to find bugs in programs that we would not be able to if we only considered accesses to whole memory objects.
-
-CCF matches execution traces to the execution tree by walking down the tree from the root and checking that each constraint encountered in the execution tree matches a valid option at that point in the execution tree. It matches the constraints by directly comparing them and checking if the constraint equals the constraint or its negation. Unfortunately, memory allocation addresses are inherently non-deterministic. This means that checking against the constraints described above would never result in a match as the $obj\_pos$ is non-deterministic.
-
-To overcome this, we changed the execution tree to match constraints using a unique id for each code location in the LLVM IR. As LLVM IR does not store code location information by default, we modified CCF's instrumentation to generate a 64 bit id for each code location using a pseudo-random number generator seeded with the path to the source code file. This guarantees that the id generated for a specific code location will always be the same between runs. Once we have a unique id for a code location, we can match branches on non-deterministic data like memory addresses by checking that the code locations match. This comparison is also more efficient than comparing expressions directly, as it takes constant time to compare the equality of two 64 bit values.
 
 \subsection{Limitations}
-C-objects have an associated memory alignment which restricts which addresses they can be written to and from. The array memory model does not represent this as it treats each memory object as a flat array. Therefore, we cannot detect unaligned accesses even though these can cause crashes on some hardware.
+C-objects have an associated memory alignment which restricts which addresses they can be written to and from. The memory model does not represent this as it treats each memory object as having no internal structure. Therefore, we cannot detect unaligned accesses even though these can cause crashes on some hardware.
 
 The implementation of sub-objects has bad scaling for large memory objects with many accessible bytes.
 
@@ -421,7 +496,7 @@ The implementation of sub-objects has bad scaling for large memory objects with 
 % Need to define the execution tree as the tree constructed from all execution traces we have observed, maybe not here though
 
 % Need to justify why I did any of this - remember to lead with abstraction - it works in general and makes everything simpler
-CCF's original implementation of the execution tree only allowed for binary choices which was reasonable as most branches in a program are binary. In order to encode a switch statement using only binary choices and allowing for matching against previous traces, the original implementation would emit a binary constraint of \\$\neg{(condition\_expr = case)}$ for each previous switch case that we did not hit and finally emit a binary constraint of $(condition\_expr = case)$ for the case we hit. This meant we emitted on average $\frac{n}{2}$ constraints for each switch we encountered. This was acceptable for switches as in real world cases we rarely see extremely large switch statements. However, the number of valid targets for a memory access under the array memory model is equal to the number of memory objects allocated at that execution point. This means every memory access behaves like a large switch.
+CCF's original implementation of the execution tree only allowed for binary choices which was reasonable as most branches in a program are binary. In order to encode a switch statement using only binary choices and allowing for matching against previous traces, the original implementation would emit a binary constraint of \\$\neg{(condition\_expr = case)}$ for each previous switch case that we did not hit and finally emit a binary constraint of $(condition\_expr = case)$ for the case we hit. This meant we emitted on average $\frac{n}{2}$ constraints for each switch we encountered. This was acceptable for switches as in real world cases we rarely see extremely large switch statements. However, the number of valid targets for a memory access under the memory model is equal to the number of memory objects allocated at that execution point. This means every memory access behaves like a large switch.
 
 A natural extension of the execution tree would be to allow each node in the tree to have $k$ children, which would allow each switch and memory access to represented using a single node in the execution tree. Not only does this reduce the number of constraints we need to emit per branch to a constant (1), but it also means the execution tree generated more closely matches the definition of the execution tree of having each node represent a branch.
 
